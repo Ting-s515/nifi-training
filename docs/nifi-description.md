@@ -95,6 +95,51 @@ NiFi 的 Data Provenance 功能可以記錄資料處理歷程，因此適合需�
 - 需要追蹤資料處理歷程。
 - 團隊希望降低自製資料搬移程式的維護成本。
 
+## Docker Single User 登入設定
+
+使用官方 Docker image 啟動 NiFi 時，NiFi 2.x 預設使用 HTTPS 與 Single User Authentication。若沒有指定帳號密碼，NiFi 啟動時會自動產生一組隨機帳密並寫在 container log 裡。
+
+常見的本機存取網址如下，實際 port 需依 Docker port mapping 調整：
+
+```text
+https://localhost:8443/nifi
+```
+
+若要固定登入帳密，可設定 NiFi Docker image 使用的環境變數：
+
+```yaml
+environment:
+  - SINGLE_USER_CREDENTIALS_USERNAME=<username>
+  - SINGLE_USER_CREDENTIALS_PASSWORD=<password>
+```
+
+也可以搭配 `.env` 管理實際值，再由 Docker Compose 展開：
+
+```env
+NIFI_USERNAME=<username>
+NIFI_PASSWORD=<password>
+```
+
+```yaml
+environment:
+  - SINGLE_USER_CREDENTIALS_USERNAME=${NIFI_USERNAME}
+  - SINGLE_USER_CREDENTIALS_PASSWORD=${NIFI_PASSWORD}
+```
+
+### 密碼最少字元限制
+
+NiFi 的 single-user 密碼至少需要 12 個字元。若密碼少於 12 個字元，`nifi.sh set-single-user-credentials` 會拒絕設定，錯誤訊息如下：
+
+```text
+ERROR: Password must be at least 12 characters
+```
+
+建議使用至少 12 個字元、包含大小寫字母、數字與符號的密碼。修改登入帳密後，通常需要重新建立 NiFi container，讓啟動腳本重新套用 single-user 設定。
+
+```powershell
+docker compose up -d --force-recreate nifi
+```
+
 ## 不一定適合使用 NiFi 的情境
 
 - 需要高度複雜的資料運算或機器學習訓練流程。

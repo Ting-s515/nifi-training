@@ -9,7 +9,6 @@
 先確認容器已啟動：
 
 ```powershell
-cd C:\work_project\nifi
 docker compose start
 docker compose ps
 ```
@@ -20,6 +19,8 @@ docker compose ps
 - NiFi Registry UI：`http://localhost:18080/nifi-registry`
 
 登入帳密請看本機 `.env`，不要把實際密碼寫進文件或 commit。
+
+注意：課程中的 `docker compose ...` 指令都要在專案根目錄執行，也就是目前包含 `docker-compose.yaml` 的工作目錄。若在其他目錄執行，可能會出現 `no such service: nifi` 或找不到 compose 專案。
 
 ## 課程路線
 

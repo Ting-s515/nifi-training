@@ -65,7 +65,7 @@ this,is,my-first-flow
 2. 按左側 Operate 面板的 Start。
 3. 等 1 至 2 次執行後，停止 `GenerateFlowFile`。
 
-在 PowerShell 看 log：
+在當前工作目錄 PowerShell 看 log：
 
 ```powershell
 docker compose logs --tail=120 nifi
@@ -96,4 +96,4 @@ docker compose logs --tail=120 nifi
 
 - `GenerateFlowFile` 一直產資料：把 `Run Schedule` 調大，或練習完立刻 stop。
 - `LogAttribute` invalid：確認 `success` relationship 是否已 auto-terminate。
-- 看不到 log：確認 `Log Level = info`，並用 `docker compose logs --tail=120 nifi` 查最近 log。
+- 看不到 log：確認 `Log Level = info`，再用 `docker compose logs --tail=120 nifi` 查最近 log。

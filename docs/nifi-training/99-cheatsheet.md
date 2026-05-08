@@ -116,6 +116,8 @@ NiFi CRON 範例：
 
 ## 日常 Docker 指令
 
+以下指令都在專案根目錄執行，也就是目前包含 `docker-compose.yaml` 的工作目錄。
+
 ```powershell
 docker compose ps
 docker compose stop

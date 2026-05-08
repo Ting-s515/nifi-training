@@ -6,8 +6,10 @@
 
 ## 你會做出什麼
 
-```text
-GenerateFlowFile -> UpdateRecord -> LogAttribute
+```mermaid
+flowchart LR
+    G[GenerateFlowFile] --> U[UpdateRecord]
+    U --> L[LogAttribute]
 ```
 
 `UpdateAttribute` 改的是 FlowFile metadata；`UpdateRecord` 改的是 content 裡每一筆 record 的欄位值。
@@ -75,9 +77,10 @@ order_id,customer,amount,status
 
 ## Step 6：連線與執行
 
-```text
-GenerateFlowFile success -> UpdateRecord
-UpdateRecord success -> LogAttribute
+```mermaid
+flowchart LR
+    G[GenerateFlowFile] -- success --> U[UpdateRecord]
+    U -- success --> L[LogAttribute]
 ```
 
 Auto-terminate：
@@ -133,3 +136,32 @@ order_id,customer,amount,status,final_status
 - 你能用 `/field_name` 這種 RecordPath 指到欄位。
 - 你知道 `Replacement Value Strategy` 會決定 value 被當成 literal 還是 RecordPath。
 - 你知道 schema 會影響欄位是否能被新增、保留或輸出。
+
+## 本 Lab 的學習重點回顧
+
+這個 Lab 建立的是 record transformation flow：
+
+```mermaid
+flowchart LR
+    G[GenerateFlowFile] --> U[UpdateRecord]
+    U --> L[LogAttribute]
+    RP[RecordPath] -. 指定欄位 .-> U
+```
+
+整個流程的意思是：
+
+1. `GenerateFlowFile` 產生 CSV 訂單資料。
+2. `CSVReader` 把 CSV 解析成 records。
+3. `UpdateRecord` 用 RecordPath 找到 record 裡的欄位。
+4. `UpdateRecord` 依設定把欄位改成固定值，或改成另一個欄位的值。
+5. `CSVRecordSetWriter` 把修改後的 records 寫回 CSV。
+6. `LogAttribute` 印出修改後的結果。
+
+這個 Lab 模擬公司專案常見情境：資料進入後要標準化欄位值、補欄位、遮罩欄位，或把來源欄位轉成目標系統需要的格式。
+
+做完後你要理解：
+
+- `UpdateAttribute` 改 FlowFile 外層 metadata。
+- `UpdateRecord` 改 FlowFile content 裡的 record 欄位。
+- RecordPath 像是指向 record 欄位的路徑，例如 `/status`。
+- Schema 會影響欄位能不能被保留或正確輸出。

@@ -169,3 +169,32 @@ Controller Service with ID ... is disabled
 - 你知道 DBCPConnectionPool 是共用 DB 連線設定。
 - 你知道 PutDatabaseRecord 用 RecordReader 讀取 FlowFile content。
 - 你知道正式環境應先用 sandbox table 驗證。
+
+## 本 Lab 的學習重點回顧
+
+這個 Lab 建立的是 CSV to database flow：
+
+```mermaid
+flowchart LR
+    G[GenerateFlowFile] --> P[PutDatabaseRecord]
+    P --> DB[(Database)]
+    Reader[CSVReader] -. reads records .-> P
+    Pool[DBCPConnectionPool] -. JDBC connection .-> P
+```
+
+整個流程的意思是：
+
+1. `GenerateFlowFile` 產生一份 CSV 訂單資料。
+2. `CSVReader` 把 CSV content 解析成 records。
+3. `DBCPConnectionPool` 提供 JDBC 連線設定與連線池。
+4. `PutDatabaseRecord` 根據 records 與 table name 產生 SQL 寫入資料庫。
+5. 寫入成功走 `success`，寫入失敗走 `failure`。
+
+這個 Lab 模擬公司專案常見情境：從檔案、API 或上游系統取得資料後，整理成 records，再寫入 MySQL、Redshift 或其他資料庫。
+
+做完後你要理解：
+
+- NiFi 寫 DB 通常不是 Processor 自己保存全部連線資訊，而是透過 `DBCPConnectionPool`。
+- JDBC jar path 必須是 container 內路徑，不是 Windows 主機路徑。
+- CSV header、record 欄位與資料表欄位需要對得上。
+- DB 寫入流程一定要設計 failure path，否則 production 排錯會很困難。

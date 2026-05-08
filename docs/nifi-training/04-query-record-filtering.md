@@ -6,8 +6,10 @@
 
 ## 你會做出什麼
 
-```text
-GenerateFlowFile -> QueryRecord -> LogAttribute
+```mermaid
+flowchart LR
+    G[GenerateFlowFile] --> Q[QueryRecord]
+    Q --> L[LogAttribute]
 ```
 
 `RouteOnAttribute` 是看 FlowFile attribute，`QueryRecord` 是看 FlowFile content 裡的 record 欄位。
@@ -88,9 +90,10 @@ order_id,customer,amount,status
 
 ## Step 6：連線
 
-```text
-GenerateFlowFile success -> QueryRecord
-QueryRecord large_orders -> LogAttribute
+```mermaid
+flowchart LR
+    G[GenerateFlowFile] -- success --> Q[QueryRecord]
+    Q -- large_orders --> L[LogAttribute]
 ```
 
 Auto-terminate：
@@ -136,3 +139,32 @@ docker compose logs --tail=200 nifi
 - 你能說明 Attribute 路由與 Record 欄位篩選的差異。
 - 你能用 QueryRecord 產生多個 relationship。
 - 你能用 `record.count` 與 output content 檢查篩選結果。
+
+## 本 Lab 的學習重點回顧
+
+這個 Lab 建立的是 record-level filtering：
+
+```mermaid
+flowchart LR
+    G[GenerateFlowFile] --> Q[QueryRecord]
+    Q -- large_orders --> L[LogAttribute]
+    Q -- original --> O[Auto-terminate 或其他處理]
+```
+
+整個流程的意思是：
+
+1. `GenerateFlowFile` 產生一份包含多筆訂單的 CSV。
+2. `CSVReader` 把 CSV 解析成 records。
+3. `QueryRecord` 用 SQL-like 語法查這些 records。
+4. 符合 `amount >= 100` 的 records 會被輸出到 `large_orders` relationship。
+5. `CSVRecordSetWriter` 把篩選後的 records 寫回 CSV。
+6. `LogAttribute` 印出篩選後的結果。
+
+這個 Lab 模擬公司專案常見情境：一批資料進來後，只挑出符合條件的資料往下游送，例如大額訂單、取消訂單、錯誤狀態資料。
+
+做完後你要理解：
+
+- `RouteOnAttribute` 是看 FlowFile attributes。
+- `QueryRecord` 是看 content 裡每一筆 record 的欄位。
+- `QueryRecord` 可以用多個 dynamic properties 產生多條輸出 relationship。
+- `original` relationship 是原始資料，要明確處理或 auto-terminate。

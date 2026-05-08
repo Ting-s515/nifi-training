@@ -6,8 +6,10 @@
 
 ## 你會做出什麼
 
-```text
-GenerateFlowFile -> ConvertRecord -> LogAttribute
+```mermaid
+flowchart LR
+    G[GenerateFlowFile] --> C[ConvertRecord]
+    C --> L[LogAttribute]
 ```
 
 這一章會刻意練習 Controller Service，因為公司專案中 `Record Reader is disabled`、`Record Writer is disabled` 是很常見的 invalid 來源。
@@ -80,9 +82,10 @@ order_id,customer,amount,status
 
 ## Step 6：連線
 
-```text
-GenerateFlowFile success -> ConvertRecord
-ConvertRecord success -> LogAttribute
+```mermaid
+flowchart LR
+    G[GenerateFlowFile] -- success --> C[ConvertRecord]
+    C -- success --> L[LogAttribute]
 ```
 
 Auto-terminate：
@@ -122,3 +125,33 @@ docker compose logs --tail=180 nifi
 - 你知道 `CSVReader` 負責把 content 解析成 records。
 - 你知道 `CSVRecordSetWriter` 負責把 records 寫回 content。
 - 你能從 `record.count` 判斷實際處理了幾筆 record。
+
+## 本 Lab 的學習重點回顧
+
+這個 Lab 建立的是 record conversion flow：
+
+```mermaid
+flowchart LR
+    G[GenerateFlowFile] --> C[ConvertRecord]
+    C --> L[LogAttribute]
+    Reader[CSVReader] -. reads records .-> C
+    Writer[CSVRecordSetWriter] -. writes records .-> C
+```
+
+整個流程的意思是：
+
+1. `GenerateFlowFile` 產生一段 CSV content。
+2. `ConvertRecord` 需要兩個 Controller Services。
+3. `CSVReader` 把 CSV content 解析成 NiFi records。
+4. `CSVRecordSetWriter` 再把 records 寫回 CSV content。
+5. `LogAttribute` 把轉換後的 FlowFile 狀態與內容寫到 log。
+
+這個 Lab 看起來像只是 CSV 轉 CSV，但重點不是格式變化，而是學會 NiFi Record 架構。
+
+做完後你要理解：
+
+- Reader 負責「讀懂來源資料」。
+- Writer 負責「輸出成目標格式」。
+- `ConvertRecord` 本身負責串接 Reader 和 Writer。
+- Controller Service 必須 enabled，否則 Processor 會 invalid。
+- 後續 `QueryRecord`、`UpdateRecord`、`PutDatabaseRecord` 都會建立在這個 Reader/Writer 觀念上。

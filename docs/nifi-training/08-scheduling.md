@@ -8,9 +8,14 @@
 
 本 Lab 會建立兩條小流程：
 
-```text
-Timer driven: GenerateFlowFile -> UpdateAttribute -> LogAttribute
-CRON driven:  GenerateFlowFile -> UpdateAttribute -> LogAttribute
+```mermaid
+flowchart LR
+    TS[Timer driven Scheduler] --> TG[GenerateFlowFile]
+    TG --> TU[UpdateAttribute]
+    TU --> TL[LogAttribute]
+    CS[CRON driven Scheduler] --> CG[GenerateFlowFile]
+    CG --> CU[UpdateAttribute]
+    CU --> CL[LogAttribute]
 ```
 
 第一條用固定間隔執行；第二條用 CRON 表達式模擬公司常見的批次排程。
@@ -83,9 +88,10 @@ Seconds Minutes Hours Day-of-Month Month Day-of-Week Year(optional)
 
 ### Step 4：連線
 
-```text
-GenerateFlowFile success -> UpdateAttribute
-UpdateAttribute success -> LogAttribute
+```mermaid
+flowchart LR
+    G[GenerateFlowFile] -- success --> U[UpdateAttribute]
+    U -- success --> L[LogAttribute]
 ```
 
 Auto-terminate：
@@ -166,7 +172,7 @@ docker compose logs --tail=220 nifi
 
 練習：
 
-1. 建立 `GenerateFlowFile -> LogAttribute`。
+1. 建立 `GenerateFlowFile` 並連到 `LogAttribute`。
 2. 將 `GenerateFlowFile` 設定為：
 
 | Setting | Value |
@@ -271,3 +277,31 @@ docker compose logs --tail=220 nifi
 - 你知道 `Concurrent Tasks` 會影響併發與資源使用。
 - 你知道 cluster 下 `Execution` 可能造成多節點重複執行。
 - 你知道公司排程要考慮重疊執行、下游承載與錯誤處理。
+
+## 本 Lab 的學習重點回顧
+
+這個 Lab 建立的是排程觸發 flow：
+
+```mermaid
+flowchart LR
+    S[NiFi Scheduler] --> G[GenerateFlowFile]
+    G --> U[UpdateAttribute]
+    U --> L[LogAttribute]
+```
+
+整個流程的意思是：
+
+1. NiFi Scheduler 根據 Processor 的 `Scheduling` 設定觸發 Processor。
+2. `Timer driven` 用固定間隔觸發，例如每 30 秒。
+3. `CRON driven` 用指定時間規則觸發，例如每天凌晨 1 點。
+4. `Concurrent Tasks` 決定同一個 Processor 可以同時跑幾個執行緒。
+5. 在 cluster 環境中，`Execution` 會影響是所有節點都跑，還是只有 Primary Node 跑。
+
+這個 Lab 模擬公司專案常見情境：每天固定時間拉資料、每幾分鐘輪詢 API、或定期把資料寫入資料庫。
+
+做完後你要理解：
+
+- 排程不是獨立服務，而是每個 Processor 自己有 Scheduling 設定。
+- `Run Schedule` 太密會讓資料和 queue 快速累積。
+- 公司批次排程常用 `CRON driven`，但 NiFi CRON 和 Linux crontab 格式不同。
+- 在 cluster 上，如果沒有處理 `Execution`，可能發生多節點重複執行。

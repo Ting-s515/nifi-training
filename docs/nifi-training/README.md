@@ -4,6 +4,8 @@
 
 本課程不先大量講理論。每一章都會要求你在 NiFi UI 建一個小流程，跑資料，觀察 queue、attributes、content、bulletin、provenance，再把結果和實務概念對起來。
 
+每個 Lab 最下方都有「本 Lab 的學習重點回顧」，用來說明整條流程在做什麼、每個 Processor 負責什麼，以及這個練習對公司專案的意義。
+
 ## 使用環境
 
 先確認容器已啟動：

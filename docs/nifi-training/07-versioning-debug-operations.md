@@ -160,3 +160,28 @@ docker compose logs -f nifi
 - 你知道 NiFi flow 會自動保存，但公司專案仍需要版本管理。
 - 你知道日常啟停用 `stop/start`，不要刪 volume。
 - 你知道 Registry 在 NiFi 2.x 的長期方向需要依公司策略確認。
+
+## 本 Lab 的學習重點回顧
+
+這個 Lab 不是建立單一資料處理 flow，而是建立 NiFi 的維護與排錯習慣。
+
+整體重點是：
+
+```mermaid
+flowchart TD
+    A[Flow 需要版本管理] --> B[資料卡住要看 Queue]
+    B --> C[錯誤提示先看 Bulletin]
+    C --> D[資料歷程查 Provenance]
+    D --> E[系統層問題查 Logs]
+    E --> F[Docker 啟停要保留 Volume]
+```
+
+這個 Lab 模擬公司專案的日常維運情境：流程已經存在，但你需要知道誰改了 flow、資料卡在哪、哪一步失敗、是否可以安全重啟容器。
+
+做完後你要理解：
+
+- NiFi UI 上的 flow 會保存，但團隊協作仍需要版本管理。
+- Queue 是資料卡住時的第一個觀察點。
+- Bulletin 是 Processor 即時錯誤提示。
+- Provenance 是追查單筆資料流向的主要工具。
+- Docker named volume 是保護本機 NiFi 設定與 state 的關鍵。

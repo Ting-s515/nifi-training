@@ -143,3 +143,17 @@ docker volume prune
 6. 查 `docker compose logs --tail=200 nifi`。
 7. 查 Controller Service 狀態。
 8. 對照 schema、欄位名稱、relationship。
+
+## 這份速查表的使用方式
+
+這份不是照順序學習的 Lab，而是你做 Lab 或看公司 flow 時用來快速查名詞與排錯方向。
+
+建議使用方式：
+
+- 看不懂 UI 名詞時，先查「基本名詞速查」。
+- 不知道該用哪個元件時，查「常用 Processor」與「常用 Controller Service」。
+- Processor 顯示 invalid 時，先查「常見 invalid 原因」。
+- 需要排程時，查「Processor 排程速查」。
+- 資料卡住或結果不對時，照「排錯順序」從上往下檢查。
+
+如果你在公司專案看到一條陌生 flow，先不要急著改設定。先找出資料從哪個 Processor 進來、經過哪些 connection、卡在哪個 queue、失敗 relationship 有沒有被處理，再決定要看 Processor 設定、Controller Service，還是 provenance。

@@ -6,8 +6,9 @@
 
 ## 你會做出什麼
 
-```text
-GenerateFlowFile -> LogAttribute
+```mermaid
+flowchart LR
+    G[GenerateFlowFile] --> L[LogAttribute]
 ```
 
 `GenerateFlowFile` 產生一筆 FlowFile，`LogAttribute` 把 FlowFile 的 attributes 與內容寫到 NiFi log。
@@ -97,3 +98,30 @@ docker compose logs --tail=120 nifi
 - `GenerateFlowFile` 一直產資料：把 `Run Schedule` 調大，或練習完立刻 stop。
 - `LogAttribute` invalid：確認 `success` relationship 是否已 auto-terminate。
 - 看不到 log：確認 `Log Level = info`，再用 `docker compose logs --tail=120 nifi` 查最近 log。
+
+## 本 Lab 的學習重點回顧
+
+這個 Lab 建立的是最小 NiFi flow：
+
+```mermaid
+flowchart LR
+    G[GenerateFlowFile] -- success --> Q[Connection Queue]
+    Q --> L[LogAttribute]
+```
+
+整個流程的意思是：
+
+1. `GenerateFlowFile` 每 60 秒被 NiFi 排程觸發一次。
+2. 每次觸發時，它會產生一筆新的 FlowFile。
+3. 這筆 FlowFile 的 content 是你在 `Custom Text` 填入的文字。
+4. FlowFile 透過 `success` relationship 進入 connection queue。
+5. `LogAttribute` 從 queue 取出 FlowFile。
+6. `LogAttribute` 把 FlowFile attributes 與 payload 寫進 NiFi log。
+
+所以這個 Lab 不是在做真實資料整合，而是在模擬「一筆資料進入 NiFi 後，被下游 Processor 接收並留下觀察紀錄」。
+
+做完後你要理解三件事：
+
+- Processor 不是一直自動做事，它要被排程觸發，而且要是 running。
+- Connection 不是單純線條，中間有 queue，資料可能會卡在那裡。
+- `LogAttribute` 是新手最重要的觀察工具之一，用來確認 FlowFile 內容與 attributes 是否符合預期。

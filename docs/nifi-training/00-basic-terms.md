@@ -12,13 +12,18 @@
 
 ## 一張圖先看整體
 
-```text
-Process Group
-└─ Processor A -- relationship --> Connection Queue -- relationship --> Processor B
-       │                                                       │
-       │                                                       └─ FlowFile 等待下游處理
-       │
-       └─ 使用 Controller Service，例如 CSVReader、DBCPConnectionPool
+```mermaid
+flowchart LR
+    subgraph PG[Process Group]
+        PA[Processor A]
+        Q[Connection Queue]
+        PB[Processor B]
+        CS[Controller Service<br/>CSVReader / DBCPConnectionPool]
+        PA -- relationship --> Q
+        Q -- relationship --> PB
+        Q -. FlowFile 等待下游處理 .-> PB
+        PA -. 使用 .-> CS
+    end
 ```
 
 NiFi 的基本想法是：資料被包成 `FlowFile`，沿著 `Processor` 之間的 `Connection` 往下游移動。每個 Processor 處理完後，會把資料丟到不同 `Relationship`，例如 `success`、`failure`、`matched`、`unmatched`。
@@ -435,8 +440,11 @@ ${source.system:equals('training')}
 
 先記住這條線：
 
-```text
-FlowFile 在 Processor 之間移動，Connection 裡有 Queue，Processor 用 Relationship 決定資料往哪裡走。
+```mermaid
+flowchart LR
+    FF[FlowFile] --> P[Processor]
+    P -- Relationship 決定路徑 --> Q[Connection Queue]
+    Q --> N[下一個 Processor]
 ```
 
 再記住這三個排錯入口：
@@ -450,3 +458,27 @@ Bulletin 看錯誤，Queue 看資料卡在哪，Provenance 看資料走過哪裡
 ```text
 Reader、Writer、DBCP 這類共用設定要先 Enable，Processor 才能正常使用。
 ```
+
+## 本章學習重點回顧
+
+這一章不是要你背名詞，而是先建立看 NiFi UI 的判讀框架。
+
+做完後你應該能把畫面上的元件對應成這條資料流：
+
+```mermaid
+flowchart TD
+    A[資料進入 NiFi] --> B[被包成 FlowFile]
+    B --> C[由 Processor 處理]
+    C --> D[透過 Relationship 決定 Connection]
+    D --> E[暫存在 Queue]
+    E --> F[被下一個 Processor 繼續處理]
+```
+
+你也應該知道排錯時先看哪裡：
+
+- Processor 顯示 invalid：先看缺 property、relationship、Controller Service。
+- Connection 上有數字：代表 FlowFile 正卡在 queue。
+- Processor 有紅黃提示：先看 bulletin。
+- 想知道資料走過哪裡：看 Data Provenance。
+
+後面的 Lab 會一直重複這些名詞。你不需要一次全部記熟，但要能在 UI 上知道自己正在看的是資料、處理器、佇列、錯誤提示，還是共用設定。

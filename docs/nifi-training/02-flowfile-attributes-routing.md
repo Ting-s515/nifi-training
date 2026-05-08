@@ -6,8 +6,11 @@
 
 ## 你會做出什麼
 
-```text
-GenerateFlowFile -> UpdateAttribute -> RouteOnAttribute -> LogAttribute
+```mermaid
+flowchart LR
+    G[GenerateFlowFile] --> U[UpdateAttribute]
+    U --> R[RouteOnAttribute]
+    R --> L[LogAttribute]
 ```
 
 ## Step 1：建立 Process Group
@@ -70,10 +73,11 @@ RouteOnAttribute 會依 dynamic property 產生同名 relationship，例如 `csv
 
 連線：
 
-```text
-GenerateFlowFile success -> UpdateAttribute
-UpdateAttribute success -> RouteOnAttribute
-RouteOnAttribute csv_orders -> LogAttribute
+```mermaid
+flowchart LR
+    G[GenerateFlowFile] -- success --> U[UpdateAttribute]
+    U -- success --> R[RouteOnAttribute]
+    R -- csv_orders --> L[LogAttribute]
 ```
 
 Auto-terminate：
@@ -115,3 +119,30 @@ docker compose logs --tail=160 nifi
 - 你能用 `UpdateAttribute` 新增 metadata。
 - 你能用 `RouteOnAttribute` 依 attribute 分流。
 - 你知道 `unmatched` 沒處理時會造成 invalid 或資料卡住。
+
+## 本 Lab 的學習重點回顧
+
+這個 Lab 建立的是 attribute-based routing：
+
+```mermaid
+flowchart LR
+    G[GenerateFlowFile] --> U[UpdateAttribute]
+    U --> R[RouteOnAttribute]
+    R -- csv_orders --> L[LogAttribute]
+```
+
+整個流程的意思是：
+
+1. `GenerateFlowFile` 產生一筆 CSV 文字資料。
+2. `UpdateAttribute` 不改 CSV 內容，只幫 FlowFile 加上 metadata，例如 `source.system`、`data.kind`、`filename`。
+3. `RouteOnAttribute` 不看 CSV 欄位，而是看 FlowFile attributes。
+4. 如果 attributes 符合條件，例如檔名是 `.csv`，資料就走到 `csv_orders` relationship。
+5. `LogAttribute` 把最後的 FlowFile 狀態寫到 log，讓你確認 route 是否正確。
+
+這個 Lab 模擬公司專案常見情境：資料進來後，先補上來源、類型、批次資訊，再根據 metadata 決定資料要走哪條流程。
+
+做完後你要理解：
+
+- Attributes 是 FlowFile 的外層標籤，適合拿來做路由、批次追蹤、錯誤原因保存。
+- `RouteOnAttribute` 適合依 metadata 分流，不適合直接查 CSV 裡的欄位值。
+- 如果你要依 CSV 欄位內容分流，後面會用 `QueryRecord` 或 Record 相關 Processor。

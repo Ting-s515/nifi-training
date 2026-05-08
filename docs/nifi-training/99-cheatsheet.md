@@ -1,0 +1,143 @@
+# NiFi 入門速查表
+
+## 基本名詞速查
+
+| 名詞 | 白話說明 | 常見位置 |
+| --- | --- | --- |
+| `FlowFile` | NiFi 裡的一筆資料包裹，包含 content 與 attributes | Queue、Provenance、LogAttribute |
+| `Content` | FlowFile 的真正資料內容 | CSV、JSON、XML、檔案內容 |
+| `Attributes` | FlowFile metadata | `filename`、`uuid`、`record.count` |
+| `Processor` | 處理資料的節點 | Canvas 上的方塊 |
+| `Connection` | Processor 之間的線，也包含 queue | Canvas 連線 |
+| `Relationship` | Processor 處理後的出口 | `success`、`failure`、`matched` |
+| `Queue` | 等待下游處理的 FlowFile | Connection 上的數字 |
+| `Back Pressure` | Queue 滿時壓住上游的保護機制 | Connection 設定 |
+| `Controller Service` | 可共用的設定或資源 | Reader、Writer、DBCP |
+| `Process Group` | 收納一組 flow 的資料夾 | Canvas 群組 |
+| `Port` | Process Group 的入口或出口 | Input Port、Output Port |
+| `Funnel` | 多條線合併成一條的匯流點 | Canvas 漏斗圖示 |
+| `Bulletin` | UI 錯誤或警告提示 | Processor 右上角提示 |
+| `Provenance` | FlowFile 歷史紀錄 | Data Provenance |
+| `Parameter` | 可重複使用的設定值 | `#{parameter.name}` |
+| `Record` | 結構化資料的一列 | CSV row、JSON object |
+| `Schema` | Record 欄位與型別定義 | Reader/Writer 設定 |
+
+## 常用 Processor
+
+| 類型 | Processor | 用途 |
+| --- | --- | --- |
+| 產生測試資料 | `GenerateFlowFile` | 建立練習用 FlowFile |
+| 看 attributes/log | `LogAttribute` | 把 attributes 與 payload 寫到 log |
+| 改 attributes | `UpdateAttribute` | 新增或修改 FlowFile metadata |
+| attribute 路由 | `RouteOnAttribute` | 根據 Expression Language 分流 |
+| 格式轉換 | `ConvertRecord` | 用 Reader/Writer 轉換 record 格式 |
+| record 查詢 | `QueryRecord` | 用 SQL-like 語法篩選 record |
+| record 更新 | `UpdateRecord` | 用 RecordPath 修改欄位 |
+| record 驗證 | `ValidateRecord` | 檢查 record 是否符合 schema |
+| 寫資料庫 | `PutDatabaseRecord` | 將 records 寫入 DB |
+| 讀檔 | `GetFile` / `ListFile` + `FetchFile` | 讀取檔案來源 |
+| 寫檔 | `PutFile` | 將 FlowFile content 寫出檔案 |
+
+## 常用 Controller Service
+
+| Service | 用途 |
+| --- | --- |
+| `CSVReader` | 讀取 CSV content 成 records |
+| `CSVRecordSetWriter` | 將 records 寫成 CSV |
+| `JsonTreeReader` | 讀取 JSON content 成 records |
+| `JsonRecordSetWriter` | 將 records 寫成 JSON |
+| `DBCPConnectionPool` | JDBC 連線池 |
+| `AvroSchemaRegistry` | 管理 Avro schema |
+
+## 常見 invalid 原因
+
+| 訊息特徵 | 可能原因 | 處理 |
+| --- | --- | --- |
+| `Controller Service ... is disabled` | Reader/Writer/DBCP 沒 Enable | 到 Controller Services 啟用 |
+| `Relationship ... is invalid` | relationship 未連線也未 auto-terminate | 連到下游或 auto-terminate |
+| `required property is missing` | 必填 property 沒填 | 補值後 Apply |
+| `Cannot write to database` | DB 連線、權限、表格或欄位錯 | 查 DBCP 與 DB log |
+| `record.error.message` | Reader/Writer/schema 錯 | 查 failure queue attributes |
+
+## 常用 Expression Language
+
+```text
+${filename:endsWith('.csv')}
+${source.system:equals('training')}
+${now():format("yyyyMMddHHmmss")}
+${fileSize:ge(1000)}
+${uuid}
+```
+
+## 常用 QueryRecord SQL
+
+```sql
+SELECT * FROM FLOWFILE
+```
+
+```sql
+SELECT * FROM FLOWFILE WHERE "amount" >= 100
+```
+
+```sql
+SELECT "order_id", "customer", "status" FROM FLOWFILE WHERE "status" = 'CANCELLED'
+```
+
+## 常用 RecordPath
+
+```text
+/status
+/customer
+/amount
+/items[*]/sku
+```
+
+## Processor 排程速查
+
+| 設定 | 用途 | 入門建議 |
+| --- | --- | --- |
+| `Scheduling Strategy = Timer driven` | 固定間隔執行 | 一般練習與簡單輪詢先用這個 |
+| `Scheduling Strategy = CRON driven` | 指定時間點執行 | 公司批次排程常用 |
+| `Run Schedule` | 執行頻率或 CRON 表達式 | 練習用 `30 sec` 或 `60 sec` |
+| `Concurrent Tasks` | 同時執行緒數 | 新流程先用 `1` |
+| `Execution = Primary Node` | cluster 中只在 Primary Node 執行 | 避免多節點重複抓同一批資料 |
+| `Run Duration` | 延遲與吞吐量取捨 | 入門先維持預設 |
+
+NiFi CRON 範例：
+
+```text
+0/30 * * * * ?        # 每 30 秒
+0 0/5 * * * ?         # 每 5 分鐘
+0 0 1 * * ?           # 每天凌晨 1 點
+0 20 14 ? * MON-FRI   # 週一到週五 14:20
+```
+
+注意：NiFi CRON 有 seconds 欄位，不是 Linux crontab 常見的 5 欄格式。
+
+## 日常 Docker 指令
+
+```powershell
+docker compose ps
+docker compose stop
+docker compose start
+docker compose logs --tail=200 nifi
+docker compose logs -f nifi
+```
+
+避免：
+
+```powershell
+docker compose down -v
+docker volume prune
+```
+
+## 排錯順序
+
+1. 看 Processor 是否 invalid。
+2. 看 bulletin。
+3. 看 queue 是否累積。
+4. 打開 queue 檢查 FlowFile attributes/content。
+5. 查 provenance。
+6. 查 `docker compose logs --tail=200 nifi`。
+7. 查 Controller Service 狀態。
+8. 對照 schema、欄位名稱、relationship。

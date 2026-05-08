@@ -1,0 +1,171 @@
+# Lab 06：資料庫整合入門
+
+目標：理解 NiFi 如何透過 `DBCPConnectionPool` 管理 JDBC 連線，並用 `PutDatabaseRecord` 將 records 寫入資料庫。
+
+預估時間：45 至 60 分鐘。
+
+這一章會分成兩段：
+
+- A 段：在目前專案環境確認 JDBC driver 掛載。
+- B 段：用公司或本機測試資料庫實作 `PutDatabaseRecord`。
+
+## A 段：確認 JDBC driver
+
+目前 `docker-compose.yaml` 已把 JDBC jar 掛進 NiFi container：
+
+```text
+/tmp/aws_athena_jdbc.jar
+/tmp/aws_redshift_jdbc.jar
+/tmp/mysql-connector-java-8.0.26.jar
+```
+
+用 PowerShell 確認：
+
+```powershell
+docker exec nifi-service sh -lc "ls -l /tmp/*jdbc*.jar /tmp/mysql-connector-java-8.0.26.jar 2>/dev/null"
+```
+
+`DBCPConnectionPool` 的 `Database Driver Locations` 可以填這些 container 內路徑。
+
+## B 段：建立 DBCPConnectionPool
+
+在 Process Group 建立 Controller Service：`DBCPConnectionPool`。
+
+常用設定：
+
+| Property | MySQL 範例 |
+| --- | --- |
+| `Database Connection URL` | `jdbc:mysql://<host>:3306/<database>?useSSL=false&serverTimezone=UTC` |
+| `Database Driver Class Name` | `com.mysql.cj.jdbc.Driver` |
+| `Database Driver Locations` | `/tmp/mysql-connector-java-8.0.26.jar` |
+| `Database User` | 依公司環境 |
+| `Password` | 依公司環境 |
+
+Redshift 範例：
+
+| Property | Redshift 範例 |
+| --- | --- |
+| `Database Connection URL` | `jdbc:redshift://<host>:5439/<database>` |
+| `Database Driver Locations` | `/tmp/aws_redshift_jdbc.jar` |
+
+Athena 範例：
+
+| Property | Athena 範例 |
+| --- | --- |
+| `Database Driver Locations` | `/tmp/aws_athena_jdbc.jar` |
+
+實際 JDBC URL 與 driver class 以公司提供的 driver 文件為準。
+
+設定完成後，按 `Enable`。如果 Enable 失敗，先看錯誤訊息，通常是 URL、driver class、driver jar path、帳密或網路連線問題。
+
+## Step 1：建立 Process Group
+
+建立 `training-lab-06`，進入該 Process Group。
+
+## Step 2：建立 CSV Reader
+
+建立 `CSVReader`：
+
+| Property | Value |
+| --- | --- |
+| `Schema Access Strategy` | 建議正式環境用明確 schema；練習可先用 `Infer Schema` |
+
+Enable。
+
+## Step 3：準備資料表
+
+目標資料表範例：
+
+```sql
+CREATE TABLE nifi_training_orders (
+    order_id VARCHAR(20) PRIMARY KEY,
+    customer VARCHAR(100),
+    amount DECIMAL(12, 2),
+    status VARCHAR(30)
+);
+```
+
+正式環境請不要直接用 production table 練習。先用 sandbox schema 或測試資料庫。
+
+## Step 4：建立 GenerateFlowFile
+
+設定：
+
+- `Run Schedule`：`60 sec`
+- `Custom Text`：
+
+```csv
+order_id,customer,amount,status
+1001,Alice,120.50,NEW
+1002,Bob,35.00,CANCELLED
+```
+
+## Step 5：建立 PutDatabaseRecord
+
+新增 Processor：`PutDatabaseRecord`。
+
+設定：
+
+| Property | Value |
+| --- | --- |
+| `Record Reader` | 選 `CSVReader` |
+| `Database Connection Pooling Service` | 選 `DBCPConnectionPool` |
+| `Table Name` | `nifi_training_orders` |
+| `Statement Type` | `INSERT` |
+
+Auto-terminate：
+
+- `success`
+- `failure` 可先連到 `LogAttribute`，不要一開始就 auto-terminate，方便排錯。
+
+## Step 6：執行與驗證
+
+1. Start `PutDatabaseRecord`。
+2. Start `GenerateFlowFile`。
+3. 等一筆資料送出後，停止 `GenerateFlowFile`。
+4. 到 DB 查詢：
+
+```sql
+SELECT * FROM nifi_training_orders;
+```
+
+## 常見錯誤與排查
+
+### Controller Service disabled
+
+現象：
+
+```text
+Controller Service with ID ... is disabled
+```
+
+處理：
+
+1. 回到 Process Group 的 Controller Services。
+2. 找到 `DBCPConnectionPool` 或 `CSVReader`。
+3. 修正設定。
+4. Enable。
+5. 回 Processor 按 `Perform Validation`。
+
+### 找不到 JDBC driver
+
+處理：
+
+1. 確認 jar 是否存在於 container。
+2. 確認 `Database Driver Locations` 是 container 內路徑，不是 Windows 主機路徑。
+3. 確認 driver class name 正確。
+
+### 欄位對不上
+
+處理：
+
+1. CSV header 名稱要能對應資料表欄位。
+2. 欄位型別要能被 DB 轉換。
+3. 若有多餘欄位，先用 QueryRecord 或 UpdateRecord 整理。
+
+## 完成檢查
+
+- 你知道 JDBC jar 必須在 NiFi container 裡可讀。
+- 你知道 DBCPConnectionPool 是共用 DB 連線設定。
+- 你知道 PutDatabaseRecord 用 RecordReader 讀取 FlowFile content。
+- 你知道正式環境應先用 sandbox table 驗證。

@@ -122,6 +122,38 @@ NiFi 的基本想法是：資料被包成 `FlowFile`，沿著 `Processor` 之間
 - 忘記處理 `failure`，錯誤資料可能卡住或 Processor invalid。
 - `QueryRecord` 這類 Processor 可能會產生 dynamic relationship。
 
+## Auto-terminate
+
+`Auto-terminate` 代表這個 relationship 產生的 FlowFile 到此結束，不再送往下一個 Processor。
+
+你在 UI 哪裡看到：
+
+- Processor 設定的 `Relationships` 分頁。
+- 每個 relationship 旁邊可以勾選 auto-terminate。
+
+它的作用：
+
+- 明確告訴 NiFi：這個出口的資料不用再往下游送。
+- 讓 Processor validation 通過，因為 NiFi 要求每個 relationship 都必須被處理。
+- 適合用在練習流程或真的不需要保留的成功結果。
+
+重要觀念：
+
+- Auto-terminate 不是單純「忽略錯誤」。
+- Auto-terminate 後，該 relationship 的 FlowFile 生命週期會結束。
+- `failure` 不建議一開始就 auto-terminate，否則錯誤資料和錯誤原因會不容易追。
+
+常見判斷：
+
+| Relationship | 新手練習 | 公司專案 |
+| --- | --- | --- |
+| `success` | 若只是觀察結果，可 auto-terminate | 通常送到下一步或目的地 |
+| `failure` | 建議先接 `LogAttribute` 或錯誤 queue | 通常接錯誤處理、告警、重試 |
+| `original` | 若已不需要原始資料，可 auto-terminate | 視稽核、重放、追蹤需求決定 |
+| `unmatched` | 練習時可 auto-terminate | 通常要確認是否代表漏接資料 |
+
+延伸閱讀：[Auto-terminate 完整說明](supplement-auto-terminate.md)
+
 ## Queue
 
 `Queue` 是 Connection 裡等待被下游處理的 FlowFile。

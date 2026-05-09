@@ -10,6 +10,7 @@
 | `Processor` | 處理資料的節點 | Canvas 上的方塊 |
 | `Connection` | Processor 之間的線，也包含 queue | Canvas 連線 |
 | `Relationship` | Processor 處理後的出口 | `success`、`failure`、`matched` |
+| `Auto-terminate` | 讓某個 relationship 的 FlowFile 到此結束 | Processor 的 Relationships 分頁 |
 | `Queue` | 等待下游處理的 FlowFile | Connection 上的數字 |
 | `Back Pressure` | Queue 滿時壓住上游的保護機制 | Connection 設定 |
 | `Controller Service` | 可共用的設定或資源 | Reader、Writer、DBCP |
@@ -113,6 +114,20 @@ NiFi CRON 範例：
 ```
 
 注意：NiFi CRON 有 seconds 欄位，不是 Linux crontab 常見的 5 欄格式。
+
+## Auto-terminate 速查
+
+| 情境 | 建議 |
+| --- | --- |
+| 練習流程的最後一個 `success` | 可以 auto-terminate |
+| `LogAttribute` 已經是最後觀察點 | 可以 auto-terminate `success` |
+| `failure` | 不建議一開始 auto-terminate，先接錯誤處理或 `LogAttribute` |
+| `unmatched` | 先確認是否代表漏接資料，再決定是否 auto-terminate |
+| `original` | 確認不需要原始 FlowFile 後再 auto-terminate |
+
+一句話：auto-terminate 代表這個 relationship 的 FlowFile 到此結束，不是萬用的錯誤忽略開關。
+
+延伸閱讀：[Auto-terminate 完整說明](supplement-auto-terminate.md)
 
 ## 日常 Docker 指令
 

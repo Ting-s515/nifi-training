@@ -60,6 +60,12 @@ this,is,my-first-flow
 
 說明：每個 Relationship 都必須被連出去或 auto-terminate，否則 Processor 會 invalid。
 
+這裡勾選 `LogAttribute` 的 `success` auto-terminate，是因為 `LogAttribute` 已經完成本 Lab 的目的：把 FlowFile 寫到 log 讓你觀察。後面沒有下一個 Processor 要接收這筆資料，所以明確告訴 NiFi 這條 `success` 出口可以結束。
+
+不要把 auto-terminate 理解成「遇到什麼都直接丟掉」。在公司專案中，特別是 `failure` relationship，通常要先接到錯誤處理流程、錯誤 queue 或 `LogAttribute`，確認錯誤資料能被追蹤。
+
+延伸閱讀：[Auto-terminate 完整說明](supplement-auto-terminate.md)
+
 ## Step 5：啟動與觀察
 
 1. 選取兩個 Processor。
@@ -91,6 +97,7 @@ docker compose logs --tail=120 nifi
 - 你知道 Processor stopped、running、invalid 的差異。
 - 你知道 connection 裡的 queue 是下游未處理的 FlowFile。
 - 你知道 Relationship 沒處理會讓 Processor invalid。
+- 你知道 auto-terminate 代表該 relationship 的 FlowFile 到此結束。
 - 你可以用 `docker compose logs` 看到 `LogAttribute` 輸出。
 
 ## 常見錯誤
@@ -125,3 +132,4 @@ flowchart LR
 - Processor 不是一直自動做事，它要被排程觸發，而且要是 running。
 - Connection 不是單純線條，中間有 queue，資料可能會卡在那裡。
 - `LogAttribute` 是新手最重要的觀察工具之一，用來確認 FlowFile 內容與 attributes 是否符合預期。
+- `LogAttribute` 的 `success` auto-terminate 是因為這條練習流程已經沒有下一步，不是因為所有 success 都應該被終止。

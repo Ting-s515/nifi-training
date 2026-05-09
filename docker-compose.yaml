@@ -1,3 +1,6 @@
+# NiFi UI: https://localhost:8443/nifi
+# NiFi Registry UI: http://localhost:18080/nifi-registry
+# NiFi Registry UI: http://localhost:18080/nifi-registry
 services:
     nifi:
         image: nifi-sample
@@ -25,7 +28,6 @@ services:
             - SINGLE_USER_CREDENTIALS_PASSWORD=${NIFI_PASSWORD}
         networks:
             - nifi-network
-
     nifi-registry:
         image: apache/nifi-registry:2.9.0
         container_name: nifi-registry-service

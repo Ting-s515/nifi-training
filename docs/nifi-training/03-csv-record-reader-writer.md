@@ -93,6 +93,8 @@ Auto-terminate：
 - `ConvertRecord` 的 `failure`
 - `LogAttribute` 的 `success`
 
+這裡 auto-terminate `ConvertRecord` 的 `failure` 只是為了讓入門練習保持簡短。公司專案中不建議直接結束 failure，通常要接到 `LogAttribute`、錯誤 queue 或錯誤處理流程。
+
 ## Step 7：執行與驗證
 
 1. 全選 Processor，按 Start。
@@ -111,11 +113,15 @@ docker compose logs --tail=180 nifi
 
 練習排錯：
 
-1. Disable `CSVReader`。
-2. 回到 `ConvertRecord` 按 `Perform Validation`。
-3. 觀察錯誤訊息。
-4. Enable `CSVReader`。
-5. 再次 validation。
+1. 修改位置：Process Group 空白處右鍵，選 `Configure`。
+2. 進入 `Controller Services`。
+3. 找到本 Lab 建立的 `CSVReader`。
+4. 對 `CSVReader` 按 `Disable`。
+5. 修改位置：回到 Processor `ConvertRecord`。
+6. 打開 `ConvertRecord` 設定，按 `Perform Validation`。
+7. 觀察錯誤訊息，應該會看到 `Record Reader` 參照的 Controller Service disabled。
+8. 回到 `Controller Services`，把 `CSVReader` 按 `Enable`。
+9. 再回 `ConvertRecord` 按 `Perform Validation`。
 
 這會重現你之前遇到的 Controller Service disabled 問題。
 

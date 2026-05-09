@@ -118,6 +118,16 @@ Auto-terminate：
 - `success`
 - `failure` 可先連到 `LogAttribute`，不要一開始就 auto-terminate，方便排錯。
 
+建議練習做法：
+
+1. 新增一個 `LogAttribute`，命名或註解成 `lab06-db-failure`。
+2. 設定 `Log Prefix = lab06-db-failure`。
+3. 設定 `Log Payload = true`。
+4. 將 `PutDatabaseRecord` 的 `failure` relationship 連到這個 `LogAttribute`。
+5. 將 `lab06-db-failure` 的 `success` auto-terminate。
+
+成功路徑可以先 auto-terminate，因為資料已寫入資料庫；失敗路徑先保留觀察，方便看 DB 錯誤訊息。
+
 ## Step 6：執行與驗證
 
 1. Start `PutDatabaseRecord`。

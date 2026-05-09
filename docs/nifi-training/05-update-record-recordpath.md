@@ -88,6 +88,8 @@ Auto-terminate：
 - `UpdateRecord` 的 `failure`
 - `LogAttribute` 的 `success`
 
+這裡 auto-terminate `UpdateRecord` 的 `failure` 是為了讓入門練習保持簡短。公司專案中，`failure` 通常要接到錯誤處理流程，避免錯誤資料直接結束。
+
 `LogAttribute` 設定：
 
 - `Log Prefix`：`lab05`
@@ -126,9 +128,63 @@ order_id,customer,amount,status,final_status
 
 ## 練習題
 
-1. 把 `/customer` 改成固定值 `masked`，理解資料遮罩的基本做法。
-2. 把 `/amount` 改成 `0`，觀察型別是否被 writer 保留。
-3. 故意設定不存在的 RecordPath `/not_exists`，觀察是否報錯或被略過。
+### 練習 1：修改 UpdateRecord，遮罩 customer
+
+修改 Processor：`UpdateRecord`
+
+確認 `Replacement Value Strategy` 是：
+
+```text
+Literal Value
+```
+
+到 `Properties`，新增或修改 dynamic property：
+
+| Property | Value |
+| --- | --- |
+| `/customer` | `masked` |
+
+確認方式：
+
+1. Apply 後重新執行流程。
+2. 查看 `LogAttribute` 輸出。
+3. 確認每筆 record 的 `customer` 都變成 `masked`。
+
+### 練習 2：修改 UpdateRecord，觀察 amount 型別
+
+修改 Processor：`UpdateRecord`
+
+到 `Properties`，新增或修改 dynamic property：
+
+| Property | Value |
+| --- | --- |
+| `/amount` | `0` |
+
+確認方式：
+
+1. Apply 後重新執行流程。
+2. 查看 `LogAttribute` 輸出。
+3. 觀察 `amount` 是否輸出為 `0`。
+4. 若後續要寫入 DB，思考這個值是否能被 DB 欄位型別接受。
+
+### 練習 3：故意設定不存在的 RecordPath
+
+修改 Processor：`UpdateRecord`
+
+到 `Properties`，新增 dynamic property：
+
+| Property | Value |
+| --- | --- |
+| `/not_exists` | `test` |
+
+確認方式：
+
+1. Apply 後按 `Perform Validation`。
+2. 重新執行流程。
+3. 查看 `LogAttribute` 輸出是否出現 `not_exists` 欄位。
+4. 若沒有出現，回頭思考 Reader/Writer schema 是否允許新增欄位。
+
+這個練習的重點是：`UpdateRecord` 的 dynamic property key 是 RecordPath，value 是要寫入該欄位的值；欄位是否能輸出，會受到 schema 與 writer 設定影響。
 
 ## 完成檢查
 

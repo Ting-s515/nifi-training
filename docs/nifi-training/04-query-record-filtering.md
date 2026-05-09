@@ -102,6 +102,8 @@ Auto-terminate：
 - `QueryRecord` 的 `original`
 - `LogAttribute` 的 `success`
 
+這裡 auto-terminate `failure` 和 `original` 是為了讓入門練習先聚焦在 `large_orders` 輸出。公司專案中，`failure` 通常要接錯誤處理；`original` 是否結束則要依稽核、重放與追蹤需求決定。
+
 ## Step 7：執行與觀察
 
 執行後查看 log：
@@ -114,19 +116,56 @@ docker compose logs --tail=200 nifi
 
 ## 練習題
 
-新增第二個 dynamic property：
+### 練習 1：修改 QueryRecord，新增 cancelled_orders 輸出
+
+修改 Processor：`QueryRecord`
+
+到 `Properties`，新增第二個 dynamic property：
 
 | Property | Value |
 | --- | --- |
 | `cancelled_orders` | `SELECT "order_id", "customer", "status" FROM FLOWFILE WHERE "status" = 'CANCELLED'` |
 
-再新增一個 `LogAttribute`，接到 `cancelled_orders`。
+這會新增一條 relationship：`cancelled_orders`。
 
-觀察：
+### 練習 2：新增 LogAttribute，接 cancelled_orders
+
+新增 Processor：`LogAttribute`
+
+設定：
+
+| Property | Value |
+| --- | --- |
+| `Log Prefix` | `lab04-cancelled-orders` |
+| `Log Payload` | `true` |
+
+連線：
+
+```mermaid
+flowchart LR
+    Q[QueryRecord] -- cancelled_orders --> L[LogAttribute lab04-cancelled-orders]
+```
+
+Auto-terminate：
+
+- 新增的 `LogAttribute` 的 `success`
+
+### 練習 3：執行後觀察結果
+
+確認方式：
 
 - `large_orders` 輸出幾筆？
 - `cancelled_orders` 輸出幾筆？
 - `original` relationship 是否有被處理或 auto-terminate？
+
+預期結果：
+
+| Relationship | 條件 | 預期筆數 |
+| --- | --- | --- |
+| `large_orders` | `"amount" >= 100` | 2 筆，`1001`、`1003` |
+| `cancelled_orders` | `"status" = 'CANCELLED'` | 1 筆，`1002` |
+
+這個練習的重點是：修改 `QueryRecord` dynamic property 會新增新的 relationship；新增 relationship 後，必須連到下游 Processor 或 auto-terminate。
 
 ## 常見錯誤
 

@@ -172,8 +172,24 @@ docker compose logs --tail=220 nifi
 
 練習：
 
-1. 建立 `GenerateFlowFile` 並連到 `LogAttribute`。
-2. 將 `GenerateFlowFile` 設定為：
+1. 建立新的 Processor：`GenerateFlowFile`。
+2. 建立新的 Processor：`LogAttribute`。
+3. 設定 `LogAttribute`：
+
+| Property | Value |
+| --- | --- |
+| `Log Prefix` | `lab08-concurrent` |
+| `Log Payload` | `false` |
+
+4. 連線：
+
+```mermaid
+flowchart LR
+    G[GenerateFlowFile] -- success --> L[LogAttribute]
+```
+
+5. 將 `LogAttribute` 的 `success` auto-terminate。
+6. 將 `GenerateFlowFile` 設定為：
 
 | Setting | Value |
 | --- | --- |
@@ -181,11 +197,14 @@ docker compose logs --tail=220 nifi
 | `Run Schedule` | `0 sec` |
 | `Concurrent Tasks` | `1` |
 
-3. 啟動 5 秒後停止，觀察產生多少 FlowFile。
-4. 清空 queue。
-5. 將 `Concurrent Tasks` 改成 `2`。
-6. 再啟動 5 秒後停止。
-7. 比較 queue 與 log。
+7. 啟動 `LogAttribute`。
+8. 啟動 `GenerateFlowFile`，等待 5 秒後停止。
+9. 觀察 connection queue、Processor stats 或 log 數量。
+10. 清空 queue，避免上一輪資料影響比較。
+11. 修改 Processor：`GenerateFlowFile`。
+12. 將 `Concurrent Tasks` 改成 `2`。
+13. 再啟動 5 秒後停止。
+14. 比較 queue、Processor stats 或 log 數量。
 
 結論：`0 sec` 代表盡可能執行，不適合作為新手練習或低頻公司批次排程的預設值。
 

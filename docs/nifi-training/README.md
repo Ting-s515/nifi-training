@@ -55,6 +55,7 @@ docker compose ps
 ## 補充閱讀
 
 - [Auto-terminate 完整說明](supplement-auto-terminate.md)
+- [NiFi REST API Endpoint 清單](supplement-api-endpoints.md)
 
 ## 每個 Lab 的操作原則
 

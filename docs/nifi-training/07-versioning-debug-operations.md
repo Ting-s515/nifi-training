@@ -82,8 +82,9 @@ flowchart LR
 開始前先準備：
 
 1. 一個獨立 Git repository，例如 `nifi-training-flows`。不要直接拿正式專案 repository 練習。
-2. 一個可寫入該 repository 的 token。若你用 GitHub private repository，先照下一段 `Step 0` 建立 GitHub token。
-3. 先完成前面任一個 Process Group，例如 `training-lab-03` 或 `training-lab-04`。
+2. 建立 GitHub repository 時，建議勾選 `Add a README file`，讓 repository 一開始就有 `main` branch。
+3. 一個可寫入該 repository 的 token。若你用 GitHub private repository，先照下一段 `Step 0` 建立 GitHub token。
+4. 先完成前面任一個 Process Group，例如 `training-lab-03` 或 `training-lab-04`。
 
 說明：Git-based Registry Client 是 NiFi 內建的版本控制整合，不是你自己在外面寫程式呼叫 NiFi API。你仍然在 NiFi UI 右鍵 Process Group 做版本控制，只是底層保存位置改成 Git 平台。
 
@@ -241,6 +242,7 @@ document training processor comment change
 常見錯誤：
 
 - `Registry` 下拉選不到剛建立的 client：回到 `Controller Settings` > `Registry Clients`，確認 client 設定已 `Update` 且沒有 validation error。
+- `Failed to list buckets: Path [] or Branch [refs/heads/main] not found`：通常是 GitHub repository 還是空的，沒有任何 commit，所以 `main` branch 尚不存在。到 GitHub repo 新增 `README.md` 並 commit 到 `main`，或確認 `Default Branch` 填的是 repo 實際存在的 branch 名稱。
 - Token 驗證失敗：確認 token 沒過期，且對 repository 有寫入權限。
 - Repository 找不到：確認 `Repository Owner`、`Repository Namespace`、`Repository Name` 沒填反。
 - Commit 後 Git 平台沒有變化：確認 `Default Branch` 與 `Repository Path`，也確認 NiFi bulletin 是否有 Git API 錯誤。

@@ -79,7 +79,7 @@ docker exec nifi-service sh -lc "ls -l /tmp/mssql-jdbc.jar"
 
 ## B 段：實作 CSV 寫入本地 MSSQL
 
-以下步驟都在 `training-lab-06` Process Group 內進行。
+這一段會先在 MSSQL 建好 database 與 table，再回 NiFi UI 建立資料流。不要在 database 還不存在時先 Enable `DBCPConnectionPool`，因為 `databaseName=nifi_training` 代表 NiFi 要連到一個已存在的 database。
 
 ## B 段前置設定：確認 MSSQL TCP port
 
@@ -157,63 +157,9 @@ Test-NetConnection localhost -Port 1433
 
 說明：Microsoft 官方文件建議用 `SQL Server Configuration Manager` 啟用 TCP/IP 與設定固定 TCP port；修改 protocol 或 port 後，要重新啟動 SQL Server Database Engine 才會生效。如果你只是沿用目前動態 port，通常不需要改設定或重啟。
 
-## Step 1：建立 Process Group
+## Step 1：準備 MSSQL database 與 table
 
-建立 `training-lab-06`，進入該 Process Group。
-
-## Step 2：建立 DBCPConnectionPool
-
-在 Process Group 空白處右鍵，選 `Configure`，進入 `Controller Services`。
-
-建立 Controller Service：`DBCPConnectionPool`。
-
-本 Lab 假設 MSSQL 安裝在 Windows 本機。NiFi 跑在 Docker container 內，所以連 Windows 主機上的 MSSQL 時，host 建議用 `host.docker.internal`，不要用 `localhost`。port 請填 B 段前置設定中確認到的 MSSQL port；如果你採用固定 `1433`，就使用下面範例。
-
-設定：
-
-| Property | MSSQL 本地範例 |
-| --- | --- |
-| `Database Connection URL` | `jdbc:sqlserver://host.docker.internal:1433;databaseName=nifi_training;encrypt=true;trustServerCertificate=true;` |
-| `Database Driver Class Name` | `com.microsoft.sqlserver.jdbc.SQLServerDriver` |
-| `Database Driver Locations` | `/tmp/mssql-jdbc.jar` |
-| `Database User` | 建議使用 SQL Server 驗證帳號 |
-| `Password` | SQL Server 驗證密碼 |
-
-這裡的「連線字串」就是 `Database Connection URL`。它是必要設定，但不是唯一設定；如果沒有 MSSQL JDBC driver jar，NiFi 仍然無法理解 `jdbc:sqlserver://...` 這種 URL。
-
-如果你在 SSMS 使用 `Windows Authentication`，通常不需要輸入帳密，因為 SSMS 直接使用目前登入 Windows 的使用者身分。但 NiFi 是跑在 Linux container 裡，不會自動取得你的 Windows 登入身分。因此本 Lab 建議使用 SQL Server 驗證帳號，不建議把 `Database User` / `Password` 留空。
-
-Windows 驗證不是不能做，而是需要額外設定 Kerberos、NTLM 或 Microsoft JDBC driver 的 integrated authentication 相關參數。這已經超出入門 Lab 範圍，正式公司專案應依 DBA、AD 與資安規範設定。
-
-如果你保留本機 MSSQL 目前的動態 port，請把 URL 裡的 `1433` 改成實際 port，例如：
-
-```text
-jdbc:sqlserver://host.docker.internal:51234;databaseName=nifi_training;encrypt=true;trustServerCertificate=true;
-```
-
-如果你的 MSSQL 也是 Docker container，且和 NiFi 在同一個 Docker network，host 要改成 MSSQL service name，例如：
-
-```text
-jdbc:sqlserver://sqlserver:1433;databaseName=nifi_training;encrypt=true;trustServerCertificate=true;
-```
-
-`trustServerCertificate=true` 只適合本地練習或測試環境，目的是避開自簽憑證驗證問題。公司正式環境應依 DBA 或資安規範設定 TLS 憑證。
-
-設定完成後，按 `Enable`。如果 Enable 失敗，先看錯誤訊息，通常是 URL、driver class、driver jar path、帳密或網路連線問題。
-
-## Step 3：建立 CSV Reader
-
-建立 `CSVReader`：
-
-| Property | Value |
-| --- | --- |
-| `Schema Access Strategy` | 建議正式環境用明確 schema；練習可先用 `Infer Schema` |
-
-Enable。
-
-## Step 4：準備資料表
-
-目標資料表範例：
+先在 SSMS 或 Azure Data Studio 連到本地 MSSQL，執行：
 
 ```sql
 IF DB_ID(N'nifi_training') IS NULL
@@ -257,6 +203,60 @@ GO
 | `customer` | `VARCHAR(100)` | 對應 CSV 的 `customer` |
 | `amount` | `DECIMAL(12, 2)` | 對應 CSV 的 `amount` |
 | `status` | `VARCHAR(30)` | 對應 CSV 的 `status` |
+
+## Step 2：建立 Process Group
+
+回到 NiFi UI，建立 `training-lab-06`，進入該 Process Group。
+
+## Step 3：建立 DBCPConnectionPool
+
+在 Process Group 空白處右鍵，選 `Configure`，進入 `Controller Services`。
+
+建立 Controller Service：`DBCPConnectionPool`。
+
+本 Lab 假設 MSSQL 安裝在 Windows 本機。NiFi 跑在 Docker container 內，所以連 Windows 主機上的 MSSQL 時，host 建議用 `host.docker.internal`，不要用 `localhost`。port 請填 B 段前置設定中確認到的 MSSQL port；如果你採用固定 `1433`，就使用下面範例。
+
+設定：
+
+| Property | MSSQL 本地範例 |
+| --- | --- |
+| `Database Connection URL` | `jdbc:sqlserver://host.docker.internal:1433;databaseName=nifi_training;encrypt=true;trustServerCertificate=true;` |
+| `Database Driver Class Name` | `com.microsoft.sqlserver.jdbc.SQLServerDriver` |
+| `Database Driver Locations` | `/tmp/mssql-jdbc.jar` |
+| `Database User` | 建議使用 SQL Server 驗證帳號 |
+| `Password` | SQL Server 驗證密碼 |
+
+這裡的「連線字串」就是 `Database Connection URL`。它是必要設定，但不是唯一設定；如果沒有 MSSQL JDBC driver jar，NiFi 仍然無法理解 `jdbc:sqlserver://...` 這種 URL。
+
+如果你在 SSMS 使用 `Windows Authentication`，通常不需要輸入帳密，因為 SSMS 直接使用目前登入 Windows 的使用者身分。但 NiFi 是跑在 Linux container 裡，不會自動取得你的 Windows 登入身分。因此本 Lab 建議使用 SQL Server 驗證帳號，不建議把 `Database User` / `Password` 留空。
+
+Windows 驗證不是不能做，而是需要額外設定 Kerberos、NTLM 或 Microsoft JDBC driver 的 integrated authentication 相關參數。這已經超出入門 Lab 範圍，正式公司專案應依 DBA、AD 與資安規範設定。
+
+如果你保留本機 MSSQL 目前的動態 port，請把 URL 裡的 `1433` 改成實際 port，例如：
+
+```text
+jdbc:sqlserver://host.docker.internal:51234;databaseName=nifi_training;encrypt=true;trustServerCertificate=true;
+```
+
+如果你的 MSSQL 也是 Docker container，且和 NiFi 在同一個 Docker network，host 要改成 MSSQL service name，例如：
+
+```text
+jdbc:sqlserver://sqlserver:1433;databaseName=nifi_training;encrypt=true;trustServerCertificate=true;
+```
+
+`trustServerCertificate=true` 只適合本地練習或測試環境，目的是避開自簽憑證驗證問題。公司正式環境應依 DBA 或資安規範設定 TLS 憑證。
+
+設定完成後，按 `Enable`。如果 Enable 失敗，先看錯誤訊息，通常是 URL、driver class、driver jar path、帳密或網路連線問題。
+
+## Step 4：建立 CSV Reader
+
+建立 `CSVReader`：
+
+| Property | Value |
+| --- | --- |
+| `Schema Access Strategy` | 建議正式環境用明確 schema；練習可先用 `Infer Schema` |
+
+Enable。
 
 ## Step 5：建立 GenerateFlowFile
 

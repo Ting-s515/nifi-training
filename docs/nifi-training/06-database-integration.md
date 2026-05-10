@@ -79,7 +79,83 @@ docker exec nifi-service sh -lc "ls -l /tmp/mssql-jdbc.jar"
 
 ## B 段：實作 CSV 寫入本地 MSSQL
 
-以下步驟都在 `training-lab-06` Process Group 內進行。先建立 Process Group，再建立 Controller Service，避免新手不知道 service 應該放在哪一層。
+以下步驟都在 `training-lab-06` Process Group 內進行。
+
+## B 段前置設定：確認 MSSQL TCP port
+
+如果 MSSQL 是安裝在 Windows 本機，先確認 SQL Server 有開啟 TCP/IP，並確認它目前監聽哪個 port。這一步是在 Windows 上設定，不是在 NiFi UI 裡設定。
+
+1. 開啟 `SQL Server Configuration Manager`。
+   - 可以從 Windows 開始選單搜尋。
+   - 如果搜尋不到，可以用 `Win + R` 嘗試執行 `SQLServerManager16.msc`、`SQLServerManager15.msc` 或 `SQLServerManager14.msc`。不同 SQL Server 版本的檔名可能不同。
+2. 左側打開 `SQL Server Network Configuration`。
+3. 選你的 instance：
+   - 預設 instance 通常是 `Protocols for MSSQLSERVER`
+   - SQL Server Express 常見是 `Protocols for SQLEXPRESS`
+   - 公司或本機自訂 instance 會是 `Protocols for <instance-name>`
+4. 右側找到 `TCP/IP`。
+5. 如果 `TCP/IP` 是 `Disabled`，右鍵選 `Enable`。
+6. 右鍵 `TCP/IP`，選 `Properties`。
+7. 進入 `IP Addresses` 分頁。
+8. 捲到最下面 `IPAll`。
+9. 先看目前設定，不要急著清空：
+
+| Setting | Value |
+| --- | --- |
+| `TCP Dynamic Ports` | 若有值，代表目前可能使用動態 port |
+| `TCP Port` | 若有值，代表目前使用固定 port |
+
+接下來有兩種做法。
+
+### 做法 A：保留目前動態 port
+
+如果 `TCP Dynamic Ports` 已經有值，且這台本機 MSSQL 也被其他專案使用，建議先不要改。直接使用目前的 port 連線即可。
+
+假設 `TCP Dynamic Ports` 顯示 `51234`，那後面的 NiFi `Database Connection URL` 要用：
+
+```text
+jdbc:sqlserver://host.docker.internal:51234;databaseName=nifi_training;encrypt=true;trustServerCertificate=true;
+```
+
+用 PowerShell 確認本機該 port 可連：
+
+```powershell
+Test-NetConnection localhost -Port 51234
+```
+
+如果 `TcpTestSucceeded` 是 `True`，代表本機 TCP port 已可連線。
+
+### 做法 B：全新練習環境才改成固定 1433
+
+如果這是專門給 NiFi Lab 用的本機 MSSQL，沒有其他專案依賴目前動態 port，可以改成固定 `1433`，讓教學與排錯比較單純。
+
+在 `IPAll` 設定：
+
+| Setting | Value |
+| --- | --- |
+| `TCP Dynamic Ports` | 清空，不要填值 |
+| `TCP Port` | `1433` |
+
+接著：
+
+1. 按 `OK`。
+2. 左側切到 `SQL Server Services`。
+3. 找到你的 SQL Server service，例如：
+    - `SQL Server (MSSQLSERVER)`
+    - `SQL Server (SQLEXPRESS)`
+4. 右鍵該 service，選 `Restart`。
+
+用 PowerShell 確認 Windows 本機的 `1433` 有開：
+
+```powershell
+Test-NetConnection localhost -Port 1433
+```
+
+如果 `TcpTestSucceeded` 是 `True`，代表本機 TCP port 已可連線。
+
+若 NiFi container 仍然連不到本機 MSSQL，再確認 Windows 防火牆是否允許你使用的 TCP port。本機練習可新增 inbound rule 允許該 port，公司環境則依資安規範處理。
+
+說明：Microsoft 官方文件建議用 `SQL Server Configuration Manager` 啟用 TCP/IP 與設定固定 TCP port；修改 protocol 或 port 後，要重新啟動 SQL Server Database Engine 才會生效。如果你只是沿用目前動態 port，通常不需要改設定或重啟。
 
 ## Step 1：建立 Process Group
 
@@ -91,7 +167,7 @@ docker exec nifi-service sh -lc "ls -l /tmp/mssql-jdbc.jar"
 
 建立 Controller Service：`DBCPConnectionPool`。
 
-本 Lab 假設 MSSQL 安裝在 Windows 本機，並開啟 TCP `1433`。NiFi 跑在 Docker container 內，所以連 Windows 主機上的 MSSQL 時，host 建議用 `host.docker.internal`，不要用 `localhost`。
+本 Lab 假設 MSSQL 安裝在 Windows 本機。NiFi 跑在 Docker container 內，所以連 Windows 主機上的 MSSQL 時，host 建議用 `host.docker.internal`，不要用 `localhost`。port 請填 B 段前置設定中確認到的 MSSQL port；如果你採用固定 `1433`，就使用下面範例。
 
 設定：
 
@@ -100,10 +176,20 @@ docker exec nifi-service sh -lc "ls -l /tmp/mssql-jdbc.jar"
 | `Database Connection URL` | `jdbc:sqlserver://host.docker.internal:1433;databaseName=nifi_training;encrypt=true;trustServerCertificate=true;` |
 | `Database Driver Class Name` | `com.microsoft.sqlserver.jdbc.SQLServerDriver` |
 | `Database Driver Locations` | `/tmp/mssql-jdbc.jar` |
-| `Database User` | 你的 MSSQL 登入帳號 |
-| `Password` | 你的 MSSQL 密碼 |
+| `Database User` | 建議使用 SQL Server 驗證帳號 |
+| `Password` | SQL Server 驗證密碼 |
 
 這裡的「連線字串」就是 `Database Connection URL`。它是必要設定，但不是唯一設定；如果沒有 MSSQL JDBC driver jar，NiFi 仍然無法理解 `jdbc:sqlserver://...` 這種 URL。
+
+如果你在 SSMS 使用 `Windows Authentication`，通常不需要輸入帳密，因為 SSMS 直接使用目前登入 Windows 的使用者身分。但 NiFi 是跑在 Linux container 裡，不會自動取得你的 Windows 登入身分。因此本 Lab 建議使用 SQL Server 驗證帳號，不建議把 `Database User` / `Password` 留空。
+
+Windows 驗證不是不能做，而是需要額外設定 Kerberos、NTLM 或 Microsoft JDBC driver 的 integrated authentication 相關參數。這已經超出入門 Lab 範圍，正式公司專案應依 DBA、AD 與資安規範設定。
+
+如果你保留本機 MSSQL 目前的動態 port，請把 URL 裡的 `1433` 改成實際 port，例如：
+
+```text
+jdbc:sqlserver://host.docker.internal:51234;databaseName=nifi_training;encrypt=true;trustServerCertificate=true;
+```
 
 如果你的 MSSQL 也是 Docker container，且和 NiFi 在同一個 Docker network，host 要改成 MSSQL service name，例如：
 
@@ -263,7 +349,7 @@ The TCP/IP connection to the host localhost, port 1433 has failed
 
 1. NiFi 在 container 內，`localhost` 代表 NiFi container 自己，不是 Windows 主機。
 2. 若 MSSQL 裝在 Windows 本機，URL host 改成 `host.docker.internal`。
-3. 確認 MSSQL 已啟用 TCP/IP，並監聽 `1433`。
+3. 確認 MSSQL 已啟用 TCP/IP，並監聽你在 B 段前置設定確認到的 port。
 4. 確認 Windows 防火牆允許本機 Docker 連線。
 
 ### TLS 或憑證錯誤
@@ -330,6 +416,6 @@ flowchart LR
 - NiFi 寫 DB 通常不是 Processor 自己保存全部連線資訊，而是透過 `DBCPConnectionPool`。
 - `Database Connection URL` 是連線字串，但不能取代 JDBC driver。
 - JDBC jar path 必須是 container 內路徑，不是 Windows 主機路徑。
-- 本地 MSSQL 從 NiFi container 連線時，通常用 `host.docker.internal:1433`。
+- 本地 MSSQL 從 NiFi container 連線時，通常用 `host.docker.internal:<port>`。
 - CSV header、record 欄位與資料表欄位需要對得上。
 - DB 寫入流程一定要設計 failure path，否則 production 排錯會很困難。

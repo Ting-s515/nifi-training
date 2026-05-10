@@ -103,13 +103,31 @@ docker compose logs --tail=220 nifi
 
 ## Step 7：練習 RecordPath Value
 
+修改 Processor：`UpdateRecord`
+
 把 `Replacement Value Strategy` 改成：
 
 ```text
 Record Path Value
 ```
 
-新增一組練習資料：
+保留或修改 dynamic property：
+
+| Property | Value |
+| --- | --- |
+| `/status` | `/final_status` |
+
+刪除前面 Step 4 建立的 dynamic property：
+
+| Property | 原本 Value | 動作 |
+| --- | --- | --- |
+| `/source_system` | `training` | 刪除 |
+
+說明：`Record Path Value` 會讓所有 dynamic property 的 value 都被當成 RecordPath。`/status = /final_status` 是合法的，因為 `/final_status` 指向同一筆 record 的欄位；但 `/source_system = training` 會失敗，因為 `training` 只是一般文字，不是合法 RecordPath。若沒有刪除它，執行時會看到類似 `RecordPathException: Unexpected token '<EOF>' ... Query: trainin`，資料會走 `failure`。
+
+接著修改 Processor：`GenerateFlowFile`
+
+把 `Custom Text` 改成：
 
 ```csv
 order_id,customer,amount,status,final_status
@@ -118,13 +136,22 @@ order_id,customer,amount,status,final_status
 1003,Chris,500.00,new,READY
 ```
 
-設定 dynamic property：
+預期在 `LogAttribute` payload 看到類似：
 
-| Property | Value |
-| --- | --- |
-| `/status` | `/final_status` |
+```csv
+order_id,customer,amount,status,final_status
+1001,Alice,120.50,READY,READY
+1002,Bob,35.00,SKIP,SKIP
+1003,Chris,500.00,READY,READY
+```
 
-執行後，`status` 應該取自同一筆 record 的 `final_status`。
+這一步要檢查的是：
+
+1. `GenerateFlowFile` 的 `Custom Text` 是上面的 CSV。
+2. `UpdateRecord` 的 `Replacement Value Strategy` 是 `Record Path Value`。
+3. `UpdateRecord` 的 dynamic property 只保留 `/status = /final_status`。
+4. `UpdateRecord` 不要保留 `/source_system = training`。
+5. 從 `LogAttribute` 的 log payload 或 Queue 的 FlowFile content 觀察輸出 CSV。
 
 ## 練習題
 
@@ -138,7 +165,7 @@ order_id,customer,amount,status,final_status
 Literal Value
 ```
 
-到 `Properties`，新增或修改 dynamic property：
+到 `Properties`，先刪除 Step 7 的 `/status = /final_status`，再新增或修改 dynamic property：
 
 | Property | Value |
 | --- | --- |
@@ -154,7 +181,7 @@ Literal Value
 
 修改 Processor：`UpdateRecord`
 
-到 `Properties`，新增或修改 dynamic property：
+到 `Properties`，先刪除練習 1 的 `/customer = masked`，再新增或修改 dynamic property：
 
 | Property | Value |
 | --- | --- |
@@ -171,7 +198,7 @@ Literal Value
 
 修改 Processor：`UpdateRecord`
 
-到 `Properties`，新增 dynamic property：
+到 `Properties`，先刪除練習 2 的 `/amount = 0`，再新增 dynamic property：
 
 | Property | Value |
 | --- | --- |

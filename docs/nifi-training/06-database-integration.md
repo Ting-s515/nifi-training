@@ -281,8 +281,13 @@ order_id,customer,amount,status
 | --- | --- |
 | `Record Reader` | 選 `CSVReader` |
 | `Database Connection Pooling Service` | 選 `DBCPConnectionPool` |
-| `Table Name` | `dbo.nifi_training_orders` |
+| `Database Type` | `MS SQL 2012+` |
+| `Database Name` | `nifi_training` |
+| `Schema Name` | `dbo` |
+| `Table Name` | `nifi_training_orders` |
 | `Statement Type` | `INSERT` |
+
+注意：不要把 `dbo.nifi_training_orders` 全部填到 `Table Name`。`PutDatabaseRecord` 會用 JDBC metadata 查表，MSSQL 的 database、schema、table 要分開填。
 
 Auto-terminate：
 
@@ -351,6 +356,39 @@ The TCP/IP connection to the host localhost, port 1433 has failed
 2. 若 MSSQL 裝在 Windows 本機，URL host 改成 `host.docker.internal`。
 3. 確認 MSSQL 已啟用 TCP/IP，並監聽你在 B 段前置設定確認到的 port。
 4. 確認 Windows 防火牆允許本機 Docker 連線。
+
+### Table not found
+
+現象：
+
+```text
+Table dbo.nifi_training_orders not found
+```
+
+處理：
+
+1. 不要把 `dbo.nifi_training_orders` 全部填在 `Table Name`。
+2. 在 `PutDatabaseRecord` 分開設定：
+
+| Property | Value |
+| --- | --- |
+| `Database Name` | `nifi_training` |
+| `Schema Name` | `dbo` |
+| `Table Name` | `nifi_training_orders` |
+
+3. 到 MSSQL 確認實際名稱：
+
+```sql
+SELECT
+    TABLE_CATALOG,
+    TABLE_SCHEMA,
+    TABLE_NAME
+FROM INFORMATION_SCHEMA.TABLES
+WHERE TABLE_NAME = 'nifi_training_orders';
+```
+
+4. 若查到的 `TABLE_SCHEMA` 不是 `dbo`，就把 NiFi 的 `Schema Name` 改成查到的值。
+5. 修改後重新執行流程，觀察 `failure` path 是否還有錯誤。
 
 ### TLS 或憑證錯誤
 

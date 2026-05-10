@@ -100,8 +100,10 @@ SELECT "order_id", "customer", "status" FROM FLOWFILE WHERE "status" = 'CANCELLE
 ```
 
 ```sql
-SELECT * FROM FLOWFILE WHERE "order_id" = '1003'
+SELECT * FROM FLOWFILE WHERE "order_id" = 1003
 ```
+
+注意：若 `CSVReader` 使用 `Infer Schema`，像 `order_id` 這種全數字欄位可能被推斷成數字，SQL 條件要用 `1003`。若 schema 明確定義成 string，才用 `'1003'`。
 
 ## 常用 RecordPath
 

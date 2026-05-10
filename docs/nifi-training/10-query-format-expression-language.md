@@ -234,12 +234,10 @@ order_id,customer,amount,status,order_date,note,processed_at
 把 `target_records` 改成：
 
 ```sql
-SELECT * FROM FLOWFILE WHERE "order_id" = '1003'
+SELECT * FROM FLOWFILE WHERE "order_id" = 1003
 ```
 
 重新執行後，觀察輸出是否只剩 `1003`。
-
-說明：指定某筆 record 的第一步通常不是直接在 `UpdateRecord` 裡寫 if/else，而是先用 `QueryRecord` 或其他路由方式把目標資料挑出來。
 
 ### 練習 2：替換不同字串
 
@@ -318,6 +316,33 @@ ${field.value:replaceAll(...)}
 - 先看原始日期字串長什麼樣子。
 - `toDate` 的第一個格式要對應原始字串。
 - `format` 的格式才是輸出格式。
+
+### QueryRecord 數字欄位拿字串比較
+
+現象：
+
+```text
+Unable to query FlowFile ... Error while preparing statement
+SELECT * FROM FLOWFILE WHERE "order_id" = '1003'
+```
+
+原因：
+
+- 本 Lab 的 `CSVReader` 使用 `Infer Schema`。
+- `order_id` 可能被推斷成數字欄位。
+- SQL 卻用 `'1003'` 字串去比較，Calcite 在準備 SQL 時可能失敗。
+
+處理：
+
+```sql
+SELECT * FROM FLOWFILE WHERE "order_id" = 1003
+```
+
+若公司正式 schema 把 `order_id` 定義成 string，才使用：
+
+```sql
+SELECT * FROM FLOWFILE WHERE "order_id" = '1003'
+```
 
 ### 想保留全部 records，但只改其中幾筆
 

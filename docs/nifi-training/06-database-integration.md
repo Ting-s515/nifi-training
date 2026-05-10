@@ -250,6 +250,54 @@ jdbc:sqlserver://host.docker.internal:51234;databaseName=nifi_training;encrypt=t
 jdbc:sqlserver://sqlserver:1433;databaseName=nifi_training;encrypt=true;trustServerCertificate=true;
 ```
 
+### 雲端 MSSQL / Azure SQL 的 DBCPConnectionPool 連線字串
+
+如果公司資料庫在雲端，不要使用 `host.docker.internal`。`host.docker.internal` 只代表 Docker container 要連回 Windows 主機；雲端 DB 要填雲端資料庫的 DNS name 或 server host。
+
+常見雲端 MSSQL 設定：
+
+| Property | 雲端 MSSQL 範例 |
+| --- | --- |
+| `Database Connection URL` | `jdbc:sqlserver://<db-host>:1433;databaseName=<database-name>;encrypt=true;trustServerCertificate=false;loginTimeout=30;` |
+| `Database Driver Class Name` | `com.microsoft.sqlserver.jdbc.SQLServerDriver` |
+| `Database Driver Locations` | `/tmp/mssql-jdbc.jar` |
+| `Database User` | 公司提供的 SQL login |
+| `Password` | 公司提供的 SQL password |
+
+Azure SQL Database 常見範例：
+
+```text
+jdbc:sqlserver://<server-name>.database.windows.net:1433;databaseName=<database-name>;encrypt=true;trustServerCertificate=false;hostNameInCertificate=*.database.windows.net;loginTimeout=30;
+```
+
+範例替換：
+
+```text
+jdbc:sqlserver://my-company-sql.database.windows.net:1433;databaseName=nifi_training;encrypt=true;trustServerCertificate=false;hostNameInCertificate=*.database.windows.net;loginTimeout=30;
+```
+
+說明：
+
+| URL 片段 | 意義 |
+| --- | --- |
+| `<server-name>.database.windows.net` | Azure SQL 的 server DNS name |
+| `1433` | SQL Server / Azure SQL 常見 TCP port |
+| `databaseName=<database-name>` | 要連線的 database，必須已存在 |
+| `encrypt=true` | 啟用 TLS 加密 |
+| `trustServerCertificate=false` | 要驗證伺服器憑證，正式環境建議使用 |
+| `hostNameInCertificate=*.database.windows.net` | 讓 driver 用 Azure SQL 憑證主機名稱做驗證 |
+| `loginTimeout=30` | 連線逾時秒數 |
+
+雲端 DB 連線前先確認：
+
+1. database 已建立；NiFi 不會因為 DBCPConnectionPool 設定而自動建立 database。
+2. table 已建立；`PutDatabaseRecord` 執行時才會檢查 table metadata。
+3. 雲端防火牆、security group 或 allowlist 已允許 NiFi 來源 IP 連線到 `1433`。
+4. 如果 NiFi 跑在 Docker Desktop，本機對外 IP 可能和公司 VPN、NAT 或雲端 allowlist 有關，需依公司網路環境確認。
+5. 正式環境不要把 DB 帳密寫進 Git；應使用 NiFi Parameter Context、環境變數或公司 secret 管理方式。
+
+注意：本地練習常用 `trustServerCertificate=true` 是為了避開自簽憑證驗證問題；雲端 DB 尤其是正式環境，應優先使用 `trustServerCertificate=false`，讓 JDBC driver 驗證 TLS 憑證。
+
 `trustServerCertificate=true` 只適合本地練習或測試環境，目的是避開自簽憑證驗證問題。公司正式環境應依 DBA 或資安規範設定 TLS 憑證。
 
 設定完成後，按 `Enable`。如果 Enable 失敗，先看錯誤訊息，通常是 URL、driver class、driver jar path、帳密或網路連線問題。
@@ -362,6 +410,28 @@ The TCP/IP connection to the host localhost, port 1433 has failed
 2. 若 MSSQL 裝在 Windows 本機，URL host 改成 `host.docker.internal`。
 3. 確認 MSSQL 已啟用 TCP/IP，並監聽你在 B 段前置設定確認到的 port。
 4. 確認 Windows 防火牆允許本機 Docker 連線。
+
+### 雲端 DB 連不到
+
+現象：
+
+```text
+The TCP/IP connection to the host <db-host>, port 1433 has failed
+```
+
+處理：
+
+1. 確認 `Database Connection URL` 的 host 是雲端 DB host，不是 `localhost` 或 `host.docker.internal`。
+2. 確認 port 通常是 `1433`，除非 DBA 明確提供不同 port。
+3. 確認雲端 DB firewall、security group 或 allowlist 已允許 NiFi 來源 IP。
+4. 若你透過公司 VPN 才能連 DB，先確認 Docker container 是否也能走到該網路路徑。
+5. 用本機工具先測試網路可達性，例如：
+
+```powershell
+Test-NetConnection <db-host> -Port 1433
+```
+
+說明：`Test-NetConnection` 只能確認 TCP port 是否可達，不能證明帳密、database name 或 TLS 設定正確。若 TCP 可達但 DBCP Enable 仍失敗，再看 NiFi bulletin 或 `docker compose logs --tail=200 nifi`。
 
 ### Table not found
 

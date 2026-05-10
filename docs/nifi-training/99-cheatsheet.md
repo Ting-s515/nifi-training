@@ -105,6 +105,14 @@ SELECT * FROM FLOWFILE WHERE "order_id" = 1003
 
 注意：若 `CSVReader` 使用 `Infer Schema`，像 `order_id` 這種全數字欄位可能被推斷成數字，SQL 條件要用 `1003`。若 schema 明確定義成 string，才用 `'1003'`。
 
+保留未命中資料時，建立另一個 relationship：
+
+```sql
+SELECT * FROM FLOWFILE WHERE "status" <> 'CANCELLED' OR "status" IS NULL
+```
+
+注意：`QueryRecord` 的 `original` 是完整原始 FlowFile，不是不符合條件的 records。不要把 `original` 當 unmatched 使用，否則可能重複處理 matched records。
+
 ## 常用 RecordPath
 
 ```text

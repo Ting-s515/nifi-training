@@ -223,7 +223,110 @@ order_id,customer,amount,status,order_date,note,processed_at
 - `order_date` 日期格式被改掉。
 - 新增 `processed_at` 欄位。
 
-## Part 8：練習題
+## Part 8：保留不符合 query 的資料
+
+前面的主線只保留 `target_records`，所以輸出只會有 `1002`。如果公司需求是「只修改符合條件的 records，但其他 records 仍要保留」，不要直接使用 `original` 當作不符合資料。
+
+原因：
+
+```text
+original = 完整原始 FlowFile，包含 target + unmatched
+```
+
+如果你同時保留 `original` 又輸出 `target_records`，就會造成目標資料重複。
+
+正確設計是讓 `QueryRecord` 明確切成兩條 relationship：
+
+```mermaid
+flowchart LR
+    G[GenerateFlowFile] --> Q[QueryRecord]
+    Q -- target_records --> U[UpdateRecord 格式化]
+    Q -- other_records --> O[未命中資料直接往下游]
+    U -- success --> D[同一個下游]
+    O --> D
+    Q -- original --> X[auto-terminate]
+```
+
+### Step 1：新增 other_records query
+
+修改 Processor：`QueryRecord`
+
+保留原本的 `target_records`：
+
+```sql
+SELECT * FROM FLOWFILE WHERE "status" = 'CANCELLED'
+```
+
+新增 dynamic property：
+
+| Property | Value |
+| --- | --- |
+| `other_records` | `SELECT * FROM FLOWFILE WHERE "status" <> 'CANCELLED' OR "status" IS NULL` |
+
+說明：`other_records` 代表不需要格式化的資料。`OR "status" IS NULL` 是為了避免 status 空值時被 SQL 三值邏輯排除。
+
+### Step 2：新增未命中資料觀察點
+
+新增 Processor：`LogAttribute`。
+
+命名或註解成 `lab10-other-records`。
+
+設定：
+
+| Property | Value |
+| --- | --- |
+| `Log Prefix` | `lab10-other-records` |
+| `Log Payload` | `true` |
+
+連線：
+
+```mermaid
+flowchart LR
+    Q[QueryRecord] -- other_records --> O[LogAttribute lab10-other-records]
+```
+
+Auto-terminate：
+
+- `lab10-other-records` 的 `success`
+
+### Step 3：重新執行並觀察
+
+1. Start `lab10-other-records`。
+2. 確認 `QueryRecord` 的 `original` 仍然 auto-terminate。
+3. Start `GenerateFlowFile`。
+4. 等一筆資料送出後，停止 `GenerateFlowFile`。
+5. 查看 log：
+
+```powershell
+docker compose logs --tail=260 nifi
+```
+
+你應該看到：
+
+- `lab10-result`：輸出 `1002`，而且欄位已被格式化。
+- `lab10-other-records`：輸出 `1001`、`1003`，維持原始欄位值。
+
+說明：這個設計的重點是「matched 和 unmatched 都是從 `QueryRecord` 明確查出來的結果」。`original` 只是原始完整資料，通常不應和 matched 結果一起送往下游，否則容易重複處理。
+
+### Step 4：如果要送到同一個下游
+
+如果下游是 `PutDatabaseRecord` 這類可接受多個 FlowFile 的 Processor，可以讓兩條路徑都連到同一個下游：
+
+```mermaid
+flowchart LR
+    Q[QueryRecord] -- target_records --> U[UpdateRecord]
+    U -- success --> P[PutDatabaseRecord]
+    Q -- other_records --> P
+```
+
+這代表：
+
+- 符合條件的 records 先被格式化，再寫入 DB。
+- 不符合條件的 records 不修改，直接寫入 DB。
+
+如果公司需求是「最後一定要合併成單一檔案」，要再評估 `MergeRecord` 或公司既有合併流程。合併後的順序不一定等於原始 CSV 順序，正式設計前要先確認業務是否要求順序。
+
+## Part 9：練習題
 
 ### 練習 1：改查詢條件，指定另一筆 record
 
@@ -350,11 +453,11 @@ SELECT * FROM FLOWFILE WHERE "order_id" = '1003'
 
 如果公司需求是保留所有 records，但只修改其中幾筆，常見設計方式有：
 
-- 用 `QueryRecord` 分成 matched / unmatched，再於下游合併。
+- 用 `QueryRecord` 分成 `target_records` / `other_records`，target 先格式化，other 直接往下游。
 - 用資料庫或 API 的 upsert / merge 規則處理。
 - 用更進階的 RecordPath、Script 或專用轉換 Processor，依公司規範設計。
 
-不要在還沒釐清需求時直接 auto-terminate `original`。
+不要把 `original` 當作 unmatched records。`original` 是完整原始資料，包含 matched 與 unmatched；如果同時保留 `original` 和 `target_records`，通常會造成重複資料。
 
 ## 完成檢查
 
@@ -365,6 +468,7 @@ SELECT * FROM FLOWFILE WHERE "order_id" = '1003'
 - 你能用 `replaceAll` 做字串替換或遮罩。
 - 你能用 `toDate(...):format(...)` 做日期格式轉換。
 - 你知道只改某幾筆 records 時，要先想清楚是否需要保留 unmatched records。
+- 你知道 `original` 是完整原始資料，不是不符合 query 的資料。
 
 ## 本 Lab 的學習重點回顧
 
@@ -374,19 +478,22 @@ SELECT * FROM FLOWFILE WHERE "order_id" = '1003'
 flowchart LR
     G[GenerateFlowFile] --> Q[QueryRecord]
     Q -- target_records --> U[UpdateRecord]
-    U --> L[LogAttribute]
+    Q -- other_records --> O[未命中資料]
+    U --> L[格式化後資料]
 ```
 
 整個流程的意思是：
 
 1. `GenerateFlowFile` 產生多筆 CSV records。
 2. `QueryRecord` 用 SQL-like 語法挑出目標 records。
-3. `UpdateRecord` 用 RecordPath 指定要更新的欄位。
-4. `Expression Language` 對欄位值做字串替換、日期格式化或補值。
-5. `LogAttribute` 輸出轉換後的 content，方便觀察結果。
+3. 若需要保留其他資料，`QueryRecord` 要另外輸出 `other_records`。
+4. `UpdateRecord` 用 RecordPath 指定要更新的欄位。
+5. `Expression Language` 對欄位值做字串替換、日期格式化或補值。
+6. `LogAttribute` 輸出轉換後的 content，方便觀察結果。
 
 做完後你要理解：
 
 - query、RecordPath、Expression Language 是三種不同層次的工具。
 - 公司專案常見的 formatter，不只是改字串；還包含日期格式、遮罩、固定值、補處理時間。
 - 只改某些 records 時，先用查詢或路由界定目標資料，再做格式化，比直接在一個 Processor 裡硬塞所有邏輯更容易排錯。
+- 若要保留不符合 query 的資料，應明確建立 unmatched relationship，不要誤用 `original`。

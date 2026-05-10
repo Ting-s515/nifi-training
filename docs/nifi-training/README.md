@@ -17,6 +17,7 @@
 - 每次只引入少量新概念，並且要能在 UI、queue、log 或 provenance 中看得到。
 - 理論說明要服務於當前實作，不寫和當前 Lab 無關的大段背景知識。
 - 每個 Lab 結尾要回顧整條 flow 在做什麼，避免只照步驟完成卻不知道流程意義。
+- 每個 Step 都要用「新手是否能從上一個 Step 的狀態直接照做」來檢查；若前一步留下的設定會影響下一步，必須明確寫出要保留、修改或刪除哪些設定。
 - 補充文檔只用來釐清容易誤解的概念，不取代 Lab 的實作主線。
 
 ## 使用環境
@@ -64,6 +65,7 @@ docker compose ps
 - 練習時不要讓 `GenerateFlowFile` 跑太快，建議設定 `Run Schedule = 60 sec`，確認流程後再手動 stop。
 - 每個 Lab 結束後，先清空 queue 或保留成排錯練習，不要讓測試資料一直累積。
 - 改 Controller Service 後，若 Processor 顯示 invalid，先確認 service 是否已 `Enabled`。
+- 練習題若會沿用同一個 Processor，必須先確認上一題留下的 dynamic property、relationship、auto-terminate 或排程設定是否需要清除。
 
 ## 官方文件依據
 

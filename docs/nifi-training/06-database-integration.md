@@ -28,6 +28,8 @@ NiFi container 內必須看得到 MSSQL JDBC driver jar，`DBCPConnectionPool` �
 
 先釐清一個容易誤會的觀念：NiFi 確實是透過 `Database Connection URL` 這種連線字串連到資料庫，但連線字串不能取代 JDBC driver。連線字串只描述「要連到哪一台資料庫、哪個 database、使用哪些連線參數」；JDBC driver 才是 NiFi 用來理解 SQL Server 協定並建立連線的 Java library。
 
+延伸閱讀：[JDBC Driver Jar 完整說明](supplement-jdbc-driver.md)
+
 所以 MSSQL 連線需要三個東西一起成立：
 
 | 設定 | 作用 |

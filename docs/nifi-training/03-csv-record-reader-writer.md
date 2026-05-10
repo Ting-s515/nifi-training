@@ -120,10 +120,11 @@ docker compose logs --tail=180 nifi
 5. 對 `CSVReader` 按 `Disable`。
 6. 若 NiFi 提示有 referencing components，確認只影響本 Lab 的 `ConvertRecord` 後再繼續。
 7. 修改位置：回到 Processor `ConvertRecord`。
-8. 打開 `ConvertRecord` 設定，按 `Perform Validation`。
-9. 觀察錯誤訊息，應該會看到 `Record Reader` 參照的 Controller Service disabled。
-10. 回到 `Controller Services`，把 `CSVReader` 按 `Enable`。
-11. 再回 `ConvertRecord` 按 `Perform Validation`。
+8. 回到 canvas，觀察 `ConvertRecord` 左上角是否變成 invalid 警告狀態。
+9. 將滑鼠移到 invalid 警告圖示上，查看 validation errors。
+10. 錯誤訊息應該會提到 `Record Reader` 參照的 Controller Service disabled。
+11. 回到 `Controller Services`，把 `CSVReader` 按 `Enable`。
+12. 再回 `ConvertRecord`，確認 invalid 狀態消失。
 
 這會重現你之前遇到的 Controller Service disabled 問題。
 

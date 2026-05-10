@@ -175,7 +175,7 @@ Controller Service with ID ... is disabled
 2. 找到 `DBCPConnectionPool` 或 `CSVReader`。
 3. 修正設定。
 4. Enable。
-5. 回 Processor 按 `Perform Validation`。
+5. 回 Processor 觀察 invalid 狀態是否消失；若仍 invalid，將滑鼠移到警告圖示上查看 validation errors。
 
 ### 找不到 JDBC driver
 

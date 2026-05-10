@@ -206,10 +206,11 @@ Literal Value
 
 確認方式：
 
-1. Apply 後按 `Perform Validation`。
-2. 重新執行流程。
-3. 查看 `LogAttribute` 輸出是否出現 `not_exists` 欄位。
-4. 若沒有出現，回頭思考 Reader/Writer schema 是否允許新增欄位。
+1. Apply 後回到 canvas，觀察 `UpdateRecord` 左上角是否變成 invalid 警告狀態。
+2. 如果出現 invalid，將滑鼠移到警告圖示上查看 validation errors。
+3. 重新執行流程。
+4. 查看 `LogAttribute` 輸出是否出現 `not_exists` 欄位。
+5. 若沒有出現，回頭思考 Reader/Writer schema 是否允許新增欄位。
 
 這個練習的重點是：`UpdateRecord` 的 dynamic property key 是 RecordPath，value 是要寫入該欄位的值；欄位是否能輸出，會受到 schema 與 writer 設定影響。
 

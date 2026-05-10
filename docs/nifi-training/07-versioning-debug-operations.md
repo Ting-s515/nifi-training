@@ -98,7 +98,7 @@ Processor 右上角出現紅色或黃色提示時，先看 bulletin。
 1. 點 Processor 上的 bulletin icon。
 2. 複製錯誤關鍵字。
 3. 回到該 Processor 的 Properties 或 Controller Service。
-4. 修正後按 `Perform Validation`。
+4. 修正後按 `Apply`，再觀察 invalid 狀態或 bulletin 是否消失；若仍 invalid，將滑鼠移到警告圖示上查看 validation errors。
 
 ## Part 5：Provenance 排查
 

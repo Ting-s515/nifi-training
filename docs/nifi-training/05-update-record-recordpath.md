@@ -210,16 +210,76 @@ Literal Value
 2. 如果出現 invalid，將滑鼠移到警告圖示上查看 validation errors。
 3. 重新執行流程。
 4. 查看 `LogAttribute` 輸出是否出現 `not_exists` 欄位。
-5. 若沒有出現，回頭思考 Reader/Writer schema 是否允許新增欄位。
+5. 目前本 Lab 的 `CSVRecordSetWriter` 使用 `Inherit Record Schema`，你可能會看到 `not_exists` 被輸出成新欄位。
 
 這個練習的重點是：`UpdateRecord` 的 dynamic property key 是 RecordPath，value 是要寫入該欄位的值；欄位是否能輸出，會受到 schema 與 writer 設定影響。
+
+### 練習 4：改用固定 schema Writer，觀察新增欄位不被輸出
+
+這一題會沿用練習 3 的狀態：`UpdateRecord` 已經有 `/not_exists = test`。
+
+先停止 `GenerateFlowFile`，避免你修改 Controller Service 時資料繼續進來。
+
+新增 Controller Service：`CSVRecordSetWriter`，命名或註解成 `CSVRecordSetWriter-fixed-schema`。
+
+設定：
+
+| Property | Value |
+| --- | --- |
+| `Schema Access Strategy` | `Use 'Schema Text' Property` |
+| `Schema Write Strategy` | `Do Not Write Schema` |
+| `Include Header Line` | `true` |
+| `Schema Text` | 使用下方 Avro schema |
+
+`Schema Text`：
+
+```json
+{
+  "type": "record",
+  "name": "OrderRecord",
+  "fields": [
+    { "name": "order_id", "type": "string" },
+    { "name": "customer", "type": "string" },
+    { "name": "amount", "type": "string" },
+    { "name": "status", "type": "string" }
+  ]
+}
+```
+
+Enable 這個新的 `CSVRecordSetWriter-fixed-schema`。
+
+修改 Processor：`UpdateRecord`
+
+| Property | Value |
+| --- | --- |
+| `Record Writer` | 選 `CSVRecordSetWriter-fixed-schema` |
+| `Replacement Value Strategy` | `Literal Value` |
+
+確認 dynamic property 只有：
+
+| Property | Value |
+| --- | --- |
+| `/not_exists` | `test` |
+
+重新執行流程，觀察 `LogAttribute` 輸出。
+
+預期結果：
+
+- `not_exists` 不會出現在輸出 CSV header。
+- 如果 `GenerateFlowFile` 還保留 Step 7 的 `final_status` 欄位，`final_status` 也不會出現在輸出 CSV。
+- FlowFile 不一定會走 `failure`；比較常見的是 Writer 只依固定 schema 寫出允許的欄位。
+
+這一題的重點是：`UpdateRecord` 負責修改 record；`CSVRecordSetWriter` 負責輸出 record。公司專案若使用固定 schema，新增欄位沒有寫進 schema，就算 `UpdateRecord` 設定了該欄位，最後也可能不會輸出。
+
+練習結束後，若要回到前面的自由練習狀態，把 `UpdateRecord` 的 `Record Writer` 改回原本的 `CSVRecordSetWriter`。
 
 ## 完成檢查
 
 - 你知道 `UpdateAttribute` 與 `UpdateRecord` 的差異。
 - 你能用 `/field_name` 這種 RecordPath 指到欄位。
 - 你知道 `Replacement Value Strategy` 會決定 value 被當成 literal 還是 RecordPath。
-- 你知道 schema 會影響欄位是否能被新增、保留或輸出。
+- 你知道 `UpdateRecord` 可以嘗試新增欄位，但 Writer schema 會決定最後輸出哪些欄位。
+- 你知道固定 schema 常用在公司專案，用來限制輸出欄位與下游契約。
 
 ## 本 Lab 的學習重點回顧
 
@@ -248,4 +308,4 @@ flowchart LR
 - `UpdateAttribute` 改 FlowFile 外層 metadata。
 - `UpdateRecord` 改 FlowFile content 裡的 record 欄位。
 - RecordPath 像是指向 record 欄位的路徑，例如 `/status`。
-- Schema 會影響欄位能不能被保留或正確輸出。
+- Schema 會影響欄位能不能被保留或正確輸出；固定 schema 沒有定義的欄位通常不會被 Writer 寫出。

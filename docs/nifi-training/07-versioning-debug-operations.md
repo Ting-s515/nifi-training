@@ -1,21 +1,21 @@
 # Lab 07：版本管理、排錯與日常操作
 
-目標：建立一套 NiFi 日常維護習慣，包含版本管理、queue 排查、provenance、bulletin、logs 與 Docker volume 注意事項。
+目標：建立一套 NiFi 日常維護習慣，包含 Git-based 版本管理、queue 排查、provenance、bulletin、logs 與 Docker volume 注意事項。
 
-預估時間：45 分鐘。
+預估時間：60 分鐘。
 
 ## 你會做出什麼
 
 ```mermaid
 flowchart TD
-    A[版本管理] --> B[Queue 排查]
+    A[Git-based 版本管理] --> B[Queue 排查]
     B --> C[Bulletin 排查]
     C --> D[Provenance 查資料歷程]
     D --> E[Logs 查系統訊息]
     E --> F[Docker 啟停與 Volume]
 ```
 
-這一章不是建立新資料轉換流程，而是用前面 Lab 的流程練習日常維護。每個 Part 都會對應公司專案常見的排錯入口。
+這一章不是建立新資料轉換流程，而是用前面 Lab 的流程練習日常維護。每個 Part 都會對應公司專案常見的版本管理或排錯入口。
 
 ## Part 1：版本管理觀念
 
@@ -27,9 +27,22 @@ NiFi UI 上的 flow 會自動保存到 NiFi 的 flow 設定檔；你不需要按
 http://localhost:18080/nifi-registry
 ```
 
-注意：Apache 官方已公告 NiFi Registry 已 deprecated，NiFi 2 也有 Git-based Flow Registry Clients。若公司專案仍使用 NiFi Registry，先照公司既有流程；若是新專案，建議評估 Git-based Registry。
+注意：Apache 官方已公告 NiFi Registry 已 deprecated，NiFi 2 也有 Git-based Flow Registry Clients。若公司專案仍使用 NiFi Registry，先照公司既有流程；若是新專案，建議優先學習 Git-based Flow Registry Clients。
 
-## Part 2：建立版本管理練習
+這裡的 Git-based Flow Registry Clients 指的是 NiFi 本身可設定的 Registry Client，例如 GitHub、GitLab、Bitbucket 或 Azure DevOps 類型。它不是只有「自己寫程式打 NiFi API，然後把 JSON commit 到 Git」這種自訂流程；NiFi UI 的版本控制操作也可以透過這類 Registry Client 把 Process Group 版本保存到 Git 平台。
+
+兩種做法要分清楚：
+
+| 做法 | 說明 | 常見使用方式 |
+| --- | --- | --- |
+| NiFi UI + Git-based Flow Registry Client | 在 NiFi 設定 Registry Client，對 Process Group 做 version control，底層保存到 Git 平台 | 新版 NiFi 建議評估 |
+| NiFi API + Git | 自己寫程式呼叫 NiFi API 匯出 flow definition，再用程式 commit 到 Git | 客製化 CI/CD 或自動化流程 |
+
+兩者都可能用到 Git，但第一種是 NiFi 內建版本控制整合；第二種是團隊自行設計的外部自動化流程。
+
+## Part 2：本機 NiFi Registry 版本管理練習
+
+這段練習保留給「公司既有專案仍使用 NiFi Registry」的情境。若你是新專案，仍建議看完操作概念後，接著做 Part 3 的 Git-based 練習。
 
 1. 進入 NiFi Registry。
 2. 建立 bucket，例如 `training`。
@@ -52,7 +65,153 @@ initial training flow
 route cancelled orders to rejection path
 ```
 
-## Part 3：Queue 排查
+## Part 3：Git-based Flow Registry Client 練習
+
+這段是本章最需要學的版本管理主線。你會在 NiFi UI 建立 Git-based Registry Client，然後對一個 Process Group 做 `Start version control`，讓版本保存到 Git 平台。
+
+```mermaid
+flowchart LR
+    A[NiFi UI] --> B[Registry Clients]
+    B --> C[GitHub 或 GitLab Flow Registry Client]
+    C --> D[Git Repository]
+    A --> E[Process Group]
+    E -- Start version control --> C
+    E -- Commit local changes --> D
+```
+
+開始前先準備：
+
+1. 一個獨立 Git repository，例如 `nifi-training-flows`。不要直接拿正式專案 repository 練習。
+2. 一個可寫入該 repository 的 token。token 是敏感資訊，不要寫進課程文件、不要貼在聊天紀錄、不要 commit 到 Git。
+3. 先完成前面任一個 Process Group，例如 `training-lab-03` 或 `training-lab-04`。
+
+說明：Git-based Registry Client 是 NiFi 內建的版本控制整合，不是你自己在外面寫程式呼叫 NiFi API。你仍然在 NiFi UI 右鍵 Process Group 做版本控制，只是底層保存位置改成 Git 平台。
+
+### Step 1：新增 Git-based Registry Client
+
+1. 打開 NiFi UI。
+2. 點右上角 `Global Menu`。
+3. 進入 `Controller Settings`。
+4. 切到 `Registry Clients`。
+5. 按右上角 `+`。
+6. 依公司使用的平台選一種 type：
+   - GitHub：`GitHubFlowRegistryClient`
+   - GitLab：`GitLabFlowRegistryClient`
+   - Bitbucket：`BitbucketFlowRegistryClient`
+   - Azure DevOps：`AzureDevOpsFlowRegistryClient`
+7. 名稱建議填：
+
+```text
+training-git-flow-registry
+```
+
+8. 按 `Add`。
+
+說明：這一步只是把「NiFi 要連到哪一種 Flow Registry」註冊進 NiFi。真正的 Git repository、branch、token 會在下一步設定。
+
+本課程目前 Docker 環境已確認有 `GitHubFlowRegistryClient` 與 `GitLabFlowRegistryClient`。若你在 UI 搜尋不到 Bitbucket 或 Azure DevOps 類型，先用 GitHub 或 GitLab 完成練習；正式專案再依公司 NiFi image 內實際安裝的 NAR 決定。
+
+### Step 2：設定 GitHub 或 GitLab 連線
+
+如果公司使用 GitHub，常見設定如下：
+
+| Property | Value |
+| --- | --- |
+| `Authentication Type` | `Personal Access Token` |
+| `Personal Access Token` | 你的 GitHub token |
+| `GitHub API URL` | `https://api.github.com/` |
+| `Repository Owner` | repository owner 或 organization |
+| `Repository Name` | 例如 `nifi-training-flows` |
+| `Repository Path` | 例如 `flows`，也可以留空使用 repository root |
+| `Default Branch` | `main` |
+| `Parameter Context Values` | 練習可先用 `RETAIN`；正式專案依公司規範 |
+
+如果公司使用 GitLab，常見設定如下：
+
+| Property | Value |
+| --- | --- |
+| `Authentication Type` | `Access Token` |
+| `Access Token` | 你的 GitLab token |
+| `GitLab API URL` | GitLab 站台 URL，例如 `https://gitlab.com/` 或公司 GitLab URL |
+| `GitLab API Version` | `V4` |
+| `Repository Namespace` | group 或 namespace |
+| `Repository Name` | 例如 `nifi-training-flows` |
+| `Repository Path` | 例如 `flows`，也可以留空使用 repository root |
+| `Default Branch` | `main` |
+| `Parameter Context Values` | 練習可先用 `RETAIN`；正式專案依公司規範 |
+
+設定後按 `Update`。
+
+說明：GitHub 與 GitLab 的欄位名稱不同，所以不要硬套同一組欄位。GitHub 用 `Repository Owner`，GitLab 用 `Repository Namespace`。這和 Lab 06 的 MSSQL 設定原則一樣：NiFi UI 有分開提供 property，就依 property 語意分開填。
+
+### Step 3：把 Process Group 納入 Git 版本控制
+
+1. 回到 canvas。
+2. 找到你已完成的 `training-lab-03` 或 `training-lab-04`。
+3. 右鍵該 Process Group。
+4. 選 `Version` > `Start version control`。
+5. 在 `Registry` 選剛剛建立的 `training-git-flow-registry`。
+6. 選擇或輸入保存位置。若 UI 出現 bucket、folder 或類似欄位，練習可使用 `training`。
+7. Flow name 建議填：
+
+```text
+training-lab-04-query-record
+```
+
+8. Comment 填：
+
+```text
+initial git based version
+```
+
+9. 按 `Save`。
+
+說明：NiFi 的版本控制單位是 Process Group，不是單一 Processor。root process group 不能直接納入版本控制，所以練習時要用 `training-lab-03`、`training-lab-04` 這類子 Process Group。
+
+### Step 4：修改 Flow 並 commit 第二版
+
+1. 進入剛剛納入版本控制的 Process Group。
+2. 任選一個 Processor，打開設定。
+3. 在 `Comments` 加上一句：
+
+```text
+git based registry training change
+```
+
+4. 按 `Apply`。
+5. 回到該 Process Group 外層。
+6. 觀察 Process Group 是否出現 `locally modified` 狀態。
+7. 右鍵 Process Group。
+8. 選 `Version` > `Commit local changes`。
+9. Comment 填：
+
+```text
+document training processor comment change
+```
+
+10. 按 `Save` 或 `Commit`。
+
+說明：這一步要觀察的是「NiFi UI 有偵測到本地 flow 已經和 Git 裡的版本不同」。正式專案中，commit message 不要只寫 `update`，要寫清楚改了哪條資料流與改動目的。
+
+### Step 5：到 Git 平台確認結果
+
+1. 打開 GitHub 或 GitLab repository。
+2. 查看 commit history。
+3. 確認有 NiFi 產生的 commit。
+4. 查看 `Repository Path` 對應目錄，例如 `flows`。
+5. 打開其中的 flow definition 檔案，確認它是 NiFi flow 版本資料，不是你手寫的 SQL 或程式碼。
+
+說明：你不需要手動編輯這些 flow definition 檔案。日常開發通常是在 NiFi UI 調整 Process Group，再透過 version control commit。是否允許直接改 JSON、是否要走 merge request，要依公司流程決定。
+
+常見錯誤：
+
+- `Registry` 下拉選不到剛建立的 client：回到 `Controller Settings` > `Registry Clients`，確認 client 設定已 `Update` 且沒有 validation error。
+- Token 驗證失敗：確認 token 沒過期，且對 repository 有寫入權限。
+- Repository 找不到：確認 `Repository Owner`、`Repository Namespace`、`Repository Name` 沒填反。
+- Commit 後 Git 平台沒有變化：確認 `Default Branch` 與 `Repository Path`，也確認 NiFi bulletin 是否有 Git API 錯誤。
+- 不知道該選 GitHub 還是 GitLab：依公司 Git 平台選；公司若是 GitLab，就先練 `GitLabFlowRegistryClient`。
+
+## Part 4：Queue 排查
 
 當資料卡住時，先看 connection queue。
 
@@ -80,7 +239,7 @@ route cancelled orders to rejection path
 
 這個練習的重點是：資料不是消失，而是停在 connection queue 等待下游 Processor 處理。
 
-## Part 4：Bulletin 排查
+## Part 5：Bulletin 排查
 
 Processor 右上角出現紅色或黃色提示時，先看 bulletin。
 
@@ -100,7 +259,7 @@ Processor 右上角出現紅色或黃色提示時，先看 bulletin。
 3. 回到該 Processor 的 Properties 或 Controller Service。
 4. 修正後按 `Apply`，再觀察 invalid 狀態或 bulletin 是否消失；若仍 invalid，將滑鼠移到警告圖示上查看 validation errors。
 
-## Part 5：Provenance 排查
+## Part 6：Provenance 排查
 
 Data Provenance 用來回答「這筆資料到底經過哪些處理」。
 
@@ -122,7 +281,7 @@ Data Provenance 用來回答「這筆資料到底經過哪些處理」。
 - 查某筆資料在哪一步失敗。
 - 重放資料做修正驗證。
 
-## Part 6：Docker 日常操作
+## Part 7：Docker 日常操作
 
 目前專案已使用 named volumes 保存 NiFi/Registry 資料。
 
@@ -155,7 +314,7 @@ docker volume prune
 docker inspect nifi-service --format '{{range .Mounts}}{{.Destination}} -> {{.Name}}{{println}}{{end}}'
 ```
 
-## Part 7：看 logs
+## Part 8：看 logs
 
 NiFi：
 
@@ -179,6 +338,8 @@ docker compose logs -f nifi
 
 - 你能解釋 queue、bulletin、provenance、logs 各自適合查什麼。
 - 你知道 NiFi flow 會自動保存，但公司專案仍需要版本管理。
+- 你知道如何在 NiFi UI 新增 Git-based Flow Registry Client。
+- 你知道 Git-based 版本控制的單位是 Process Group，不是單一 Processor。
 - 你知道日常啟停用 `stop/start`，不要刪 volume。
 - 你知道 Registry 在 NiFi 2.x 的長期方向需要依公司策略確認。
 
@@ -190,11 +351,12 @@ docker compose logs -f nifi
 
 ```mermaid
 flowchart TD
-    A[Flow 需要版本管理] --> B[資料卡住要看 Queue]
-    B --> C[錯誤提示先看 Bulletin]
-    C --> D[資料歷程查 Provenance]
-    D --> E[系統層問題查 Logs]
-    E --> F[Docker 啟停要保留 Volume]
+    A[Flow 需要版本管理] --> B[Git-based Registry Client 保存版本]
+    B --> C[資料卡住要看 Queue]
+    C --> D[錯誤提示先看 Bulletin]
+    D --> E[資料歷程查 Provenance]
+    E --> F[系統層問題查 Logs]
+    F --> G[Docker 啟停要保留 Volume]
 ```
 
 這個 Lab 模擬公司專案的日常維運情境：流程已經存在，但你需要知道誰改了 flow、資料卡在哪、哪一步失敗、是否可以安全重啟容器。
@@ -202,6 +364,7 @@ flowchart TD
 做完後你要理解：
 
 - NiFi UI 上的 flow 會保存，但團隊協作仍需要版本管理。
+- Git-based Flow Registry Client 是 NiFi UI 版本控制操作的 Git backend。
 - Queue 是資料卡住時的第一個觀察點。
 - Bulletin 是 Processor 即時錯誤提示。
 - Provenance 是追查單筆資料流向的主要工具。

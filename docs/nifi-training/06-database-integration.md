@@ -174,7 +174,8 @@ GO
 IF OBJECT_ID(N'dbo.nifi_training_orders', N'U') IS NULL
 BEGIN
     CREATE TABLE dbo.nifi_training_orders (
-        order_id VARCHAR(20) PRIMARY KEY,
+        DbId INT IDENTITY(1,1) PRIMARY KEY,
+        order_id VARCHAR(20),
         customer VARCHAR(100),
         amount DECIMAL(12, 2),
         status VARCHAR(30)
@@ -183,7 +184,7 @@ END;
 GO
 ```
 
-如果你重跑 Lab 時遇到 primary key 重複，可以先清空練習資料：
+如果你重跑 Lab 想重新觀察結果，可以先清空練習資料：
 
 ```sql
 USE nifi_training;
@@ -199,10 +200,13 @@ GO
 
 | 欄位 | 型別 | 說明 |
 | --- | --- | --- |
-| `order_id` | `VARCHAR(20)` | 主鍵，對應 CSV 的 `order_id` |
+| `DbId` | `INT IDENTITY(1,1)` | MSSQL 自增主鍵，不需要出現在 CSV |
+| `order_id` | `VARCHAR(20)` | 業務訂單編號，對應 CSV 的 `order_id` |
 | `customer` | `VARCHAR(100)` | 對應 CSV 的 `customer` |
 | `amount` | `DECIMAL(12, 2)` | 對應 CSV 的 `amount` |
 | `status` | `VARCHAR(30)` | 對應 CSV 的 `status` |
+
+說明：本 Lab 使用 `DbId` 當自增主鍵，是為了讓你可以重跑同一批 CSV，不會因為 `order_id = 1001` 重複而卡在 primary key。公司正式資料表是否要讓 `order_id` 唯一，要依業務規則決定；若訂單編號本來就不能重複，正式設計仍應加唯一約束或改用 upsert 流程。
 
 ## Step 2：建立 Process Group
 
@@ -399,15 +403,6 @@ encrypt=true;trustServerCertificate=true;
 ```
 
 正式環境不要直接照抄這個設定，應依公司憑證與資安規範處理。
-
-### primary key 重複
-
-如果重複執行同一批測試 CSV，MSSQL 會因為 `order_id` 主鍵重複而拒絕寫入。
-
-處理：
-
-1. 練習時先 `TRUNCATE TABLE dbo.nifi_training_orders;`。
-2. 或把 `PutDatabaseRecord` 的 `Statement Type` 改成公司實際需要的策略，例如 update/upsert 類流程。
 
 ### 欄位對不上
 

@@ -48,7 +48,7 @@ docker compose ps
 4. [Lab 03：CSV Reader/Writer 與 ConvertRecord](03-csv-record-reader-writer.md)
 5. [Lab 04：QueryRecord 與 Record 層級資料篩選](04-query-record-filtering.md)
 6. [Lab 05：UpdateRecord、RecordPath 與欄位轉換](05-update-record-recordpath.md)
-7. [Lab 06：資料庫整合入門：DBCPConnectionPool 與 PutDatabaseRecord](06-database-integration.md)
+7. [Lab 06：本地 MSSQL 資料庫整合入門](06-database-integration.md)
 8. [Lab 07：版本管理、排錯與日常操作](07-versioning-debug-operations.md)
 9. [Lab 08：Processor 排程與執行控制](08-scheduling.md)
 10. [速查表：常用 Processor 與排錯關鍵字](99-cheatsheet.md)
@@ -81,6 +81,7 @@ docker compose ps
 - UpdateRecord：https://nifi.apache.org/components/org.apache.nifi.processors.standard.UpdateRecord/
 - DBCPConnectionPool：https://nifi.apache.org/components/org.apache.nifi.dbcp.DBCPConnectionPool/
 - PutDatabaseRecord：https://nifi.apache.org/components/org.apache.nifi.processors.standard.PutDatabaseRecord/
+- Microsoft JDBC Driver for SQL Server：https://learn.microsoft.com/en-us/sql/connect/jdbc/microsoft-jdbc-driver-for-sql-server
 - NiFi Registry：https://nifi.apache.org/registry.html
 
 ## 你應該完成到什麼程度
@@ -94,6 +95,6 @@ docker compose ps
 - 用 CSVReader/CSVRecordSetWriter 處理 CSV。
 - 用 QueryRecord 對 Record 做 SQL-like 篩選。
 - 用 UpdateRecord + RecordPath 修改欄位。
-- 建立 DBCPConnectionPool，理解 JDBC driver、URL、帳密與 validation 的關係。
+- 建立 DBCPConnectionPool，理解 MSSQL JDBC driver、URL、帳密與 validation 的關係。
 - 設定 Timer driven、CRON driven、Concurrent Tasks 與基本執行策略。
 - 用 queue、bulletin、provenance、logs 找錯。

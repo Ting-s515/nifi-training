@@ -21,6 +21,16 @@
 - NiFi UI 若提供多個獨立 property，就依照 property 語意分開填，不要把外部工具或 SQL 慣用的完整字串硬塞進單一欄位。例如 MSSQL 在 `PutDatabaseRecord` 要分開填 `Database Name`、`Schema Name`、`Table Name`，不要把 `dbo.table_name` 全部填到 `Table Name`。
 - 補充文檔只用來釐清容易誤解的概念，不取代 Lab 的實作主線。
 
+課程檔名規則：
+
+- 一般主線 Lab 使用 `NN-topic.md`，例如 `01-first-flow.md`。
+- 若某個 Lab 需要延伸成系列課程，改用 `NN-00-topic.md` 作為主課，後續用 `NN-01-topic.md`、`NN-02-topic.md` 擴充。
+- 文件標題仍使用人類可讀的課程編號，例如 `# Lab 06：...`、`# Lab 06-1：...`、`# Lab 06-2：...`。
+- 範例：
+  - `06-00-database-integration.md` 對應 `Lab 06`
+  - `06-01-database-read-copy.md` 對應 `Lab 06-1`
+  - 未來可新增 `06-02-xxx.md` 對應 `Lab 06-2`
+
 ## 使用環境
 
 先確認容器已啟動：

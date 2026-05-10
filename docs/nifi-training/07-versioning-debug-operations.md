@@ -82,10 +82,45 @@ flowchart LR
 開始前先準備：
 
 1. 一個獨立 Git repository，例如 `nifi-training-flows`。不要直接拿正式專案 repository 練習。
-2. 一個可寫入該 repository 的 token。token 是敏感資訊，不要寫進課程文件、不要貼在聊天紀錄、不要 commit 到 Git。
+2. 一個可寫入該 repository 的 token。若你用 GitHub private repository，先照下一段 `Step 0` 建立 GitHub token。
 3. 先完成前面任一個 Process Group，例如 `training-lab-03` 或 `training-lab-04`。
 
 說明：Git-based Registry Client 是 NiFi 內建的版本控制整合，不是你自己在外面寫程式呼叫 NiFi API。你仍然在 NiFi UI 右鍵 Process Group 做版本控制，只是底層保存位置改成 Git 平台。
+
+### Step 0：建立 GitHub Personal Access Token
+
+如果你使用自己的 GitHub private repository，建議建立 `Fine-grained token`，不要用 classic token。Fine-grained token 可以限制只能存取指定 repository，練習時比較安全。
+
+1. 登入 GitHub。
+2. 右上角點你的頭像。
+3. 進入 `Settings`。
+4. 左側最下面進入 `Developer settings`。
+5. 進入 `Personal access tokens` > `Fine-grained tokens`。
+6. 點 `Generate new token`。
+7. 設定基本資料：
+
+| Setting | Value |
+| --- | --- |
+| `Token name` | `nifi-training-flow-registry` |
+| `Expiration` | 練習可選 30 或 90 天 |
+| `Resource owner` | 你的 GitHub 帳號 |
+| `Repository access` | `Only select repositories` |
+| `Selected repositories` | 你的 private repo，例如 `nifi-training-flows` |
+
+8. 在 `Repository permissions` 找到 `Contents`。
+9. 將 `Contents` 設為 `Read and write`。
+10. 其他權限先不要開。
+11. 點 `Generate token`。
+12. GitHub 只會顯示 token 一次，立刻複製，下一步要貼到 NiFi 的 `Personal Access Token`。
+
+說明：NiFi 需要讀取 repository 內容，也需要把 flow version commit 回 repository，所以 `Contents` 需要 `Read and write`。token 是敏感資訊，不要寫進課程文件、不要貼在聊天紀錄、不要 commit 到 Git。
+
+如果你找不到 `Contents`：
+
+1. 確認你進的是 `Fine-grained tokens`，不是 `Tokens (classic)`。
+2. 確認已設定 `Repository access = Only select repositories`，並且已選到你的 private repo。
+3. 確認你看的是 `Repository permissions`，不是 `Account permissions`。
+4. 若畫面有搜尋框，輸入 `contents`。
 
 ### Step 1：新增 Git-based Registry Client
 
@@ -118,7 +153,7 @@ training-git-flow-registry
 | Property | Value |
 | --- | --- |
 | `Authentication Type` | `Personal Access Token` |
-| `Personal Access Token` | 你的 GitHub token |
+| `Personal Access Token` | Step 0 建立的 GitHub token |
 | `GitHub API URL` | `https://api.github.com/` |
 | `Repository Owner` | repository owner 或 organization |
 | `Repository Name` | 例如 `nifi-training-flows` |

@@ -87,6 +87,7 @@ docker compose ps
 - NiFi Registry：https://nifi.apache.org/registry.html
 - GitHubFlowRegistryClient：https://nifi.apache.org/components/org.apache.nifi.github.GitHubFlowRegistryClient/
 - GitLabFlowRegistryClient：https://nifi.apache.org/components/org.apache.nifi.gitlab.GitLabFlowRegistryClient/
+- GitHub Personal Access Tokens：https://docs.github.com/en/authentication/keeping-your-account-and-data-secure/managing-your-personal-access-tokens
 
 ## 你應該完成到什麼程度
 

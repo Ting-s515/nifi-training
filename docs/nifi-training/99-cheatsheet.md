@@ -22,6 +22,9 @@
 | `Parameter` | 可重複使用的設定值 | `#{parameter.name}` |
 | `Record` | 結構化資料的一列 | CSV row、JSON object |
 | `Schema` | Record 欄位與型別定義 | Reader/Writer 設定 |
+| `Cluster` | 多個 NiFi node 共同執行同一份 flow | 公司正式環境、Summary |
+| `Primary Node` | cluster 中被選為 primary 的 node | Processor `Execution`、Cluster 管理 |
+| `Load Balanced Connection` | 把 queued FlowFile 分配到不同 node | Connection 設定 |
 
 ## 常用 Processor
 
@@ -114,6 +117,20 @@ NiFi CRON 範例：
 ```
 
 注意：NiFi CRON 有 seconds 欄位，不是 Linux crontab 常見的 5 欄格式。
+
+## Cluster 速查
+
+| 設定或名詞 | 用途 | 常見判斷 |
+| --- | --- | --- |
+| `Execution = All Nodes` | 每個 node 都會執行 Processor | 適合可分散處理的資料 |
+| `Execution = Primary Node` | 只在 Primary Node 執行 Processor | 適合只應跑一次的排程來源 |
+| `Load Balance Strategy = Do not load balance` | 不跨 node 分配 FlowFile | 預設較保守 |
+| `Load Balance Strategy = Round robin` | 輪流分配到不同 node | 適合不依賴順序的資料 |
+| `Load Balance Strategy = Partition by attribute` | 依 attribute 分配到固定 node | 適合同 key 需要在同 node 處理 |
+| `Local state` | 每個 node 各自保存狀態 | 可能造成多 node 重複讀資料 |
+| `Cluster state` | cluster 共用狀態 | 適合避免重複處理 |
+
+公司 cluster 排程先問：這個來源是否只應執行一次？如果是，優先檢查 `Execution` 是否應為 `Primary Node`。
 
 ## Auto-terminate 速查
 

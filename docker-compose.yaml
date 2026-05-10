@@ -25,6 +25,7 @@ services:
             - nifi_python_extensions:/opt/nifi/nifi-current/python_extensions
             - nifi_state:/opt/nifi/nifi-current/state
         environment:
+            - TZ=Asia/Taipei
             - SINGLE_USER_CREDENTIALS_USERNAME=${NIFI_USERNAME}
             - SINGLE_USER_CREDENTIALS_PASSWORD=${NIFI_PASSWORD}
         networks:
@@ -35,6 +36,8 @@ services:
         restart: always
         ports:
             - 18080:18080/tcp
+        environment:
+            - TZ=Asia/Taipei
         volumes:
             - nifi_registry_conf:/opt/nifi-registry/nifi-registry-current/conf
             - nifi_registry_database:/opt/nifi-registry/nifi-registry-current/database

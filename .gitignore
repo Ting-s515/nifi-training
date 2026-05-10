@@ -21,7 +21,6 @@ coverage.xml
 htmlcov/
 
 # NiFi and local runtime artifacts
-*.jar
 *.nar
 flowfile_repository/
 content_repository/

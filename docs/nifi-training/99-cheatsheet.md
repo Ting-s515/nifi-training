@@ -73,6 +73,18 @@ ${fileSize:ge(1000)}
 ${uuid}
 ```
 
+## 常用 Formatter / Expression Language
+
+| 需求 | 範例 |
+| --- | --- |
+| 字串取代 | `${field.value:replaceAll('phone=[0-9-]+', 'phone=***')}` |
+| 日期格式轉換 | `${field.value:toDate('yyyy-MM-dd HH:mm:ss'):format('yyyy/MM/dd')}` |
+| 補目前時間 | `${now():format("yyyy-MM-dd HH:mm:ss")}` |
+| 轉大寫 | `${field.value:toUpper()}` |
+| 去除前後空白 | `${field.value:trim()}` |
+
+注意：在 `UpdateRecord` 裡，`field.value` 代表目前正在更新的 record 欄位值；它不是一般 FlowFile attribute。
+
 ## 常用 QueryRecord SQL
 
 ```sql
@@ -87,6 +99,10 @@ SELECT * FROM FLOWFILE WHERE "amount" >= 100
 SELECT "order_id", "customer", "status" FROM FLOWFILE WHERE "status" = 'CANCELLED'
 ```
 
+```sql
+SELECT * FROM FLOWFILE WHERE "order_id" = '1003'
+```
+
 ## 常用 RecordPath
 
 ```text
@@ -95,6 +111,14 @@ SELECT "order_id", "customer", "status" FROM FLOWFILE WHERE "status" = 'CANCELLE
 /amount
 /items[*]/sku
 ```
+
+UpdateRecord 常見搭配：
+
+| RecordPath | Value |
+| --- | --- |
+| `/status` | `CANCELLED_NORMALIZED` |
+| `/note` | `${field.value:replaceAll('phone=[0-9-]+', 'phone=***')}` |
+| `/order_date` | `${field.value:toDate('yyyy-MM-dd HH:mm:ss'):format('yyyy/MM/dd')}` |
 
 ## Processor 排程速查
 

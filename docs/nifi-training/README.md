@@ -53,7 +53,8 @@ docker compose ps
 8. [Lab 07：版本管理、排錯與日常操作](07-versioning-debug-operations.md)
 9. [Lab 08：Processor 排程與執行控制](08-scheduling.md)
 10. [Lab 09：NiFi Cluster 入門與多節點執行觀念](09-clustering.md)
-11. [速查表：常用 Processor 與排錯關鍵字](99-cheatsheet.md)
+11. [Lab 10：Query、Formatter 與 Expression Language 實戰](10-query-format-expression-language.md)
+12. [速查表：常用 Processor 與排錯關鍵字](99-cheatsheet.md)
 
 ## 補充閱讀
 
@@ -102,6 +103,7 @@ docker compose ps
 - 用 CSVReader/CSVRecordSetWriter 處理 CSV。
 - 用 QueryRecord 對 Record 做 SQL-like 篩選。
 - 用 UpdateRecord + RecordPath 修改欄位。
+- 用 Expression Language 對 record 欄位做字串替換、遮罩與日期格式化。
 - 建立 DBCPConnectionPool，理解 MSSQL JDBC driver、URL、帳密與 validation 的關係。
 - 設定 Timer driven、CRON driven、Concurrent Tasks 與基本執行策略。
 - 看懂 cluster 中 `All Nodes`、`Primary Node`、connection load balancing 與 cluster state 的基本影響。

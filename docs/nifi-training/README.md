@@ -49,12 +49,13 @@ docker compose ps
 4. [Lab 03：CSV Reader/Writer 與 ConvertRecord](03-csv-record-reader-writer.md)
 5. [Lab 04：QueryRecord 與 Record 層級資料篩選](04-query-record-filtering.md)
 6. [Lab 05：UpdateRecord、RecordPath 與欄位轉換](05-update-record-recordpath.md)
-7. [Lab 06：本地 MSSQL 資料庫整合入門](06-database-integration.md)
-8. [Lab 07：版本管理、排錯與日常操作](07-versioning-debug-operations.md)
-9. [Lab 08：Processor 排程與執行控制](08-scheduling.md)
-10. [Lab 09：NiFi Cluster 入門與多節點執行觀念](09-clustering.md)
-11. [Lab 10：Query、Formatter 與 Expression Language 實戰](10-query-format-expression-language.md)
-12. [速查表：常用 Processor 與排錯關鍵字](99-cheatsheet.md)
+7. [Lab 06：本地 MSSQL 資料庫整合入門](06-00-database-integration.md)
+8. [Lab 06-1：從 MSSQL 讀取資料表資訊並複製資料](06-01-database-read-copy.md)
+9. [Lab 07：版本管理、排錯與日常操作](07-versioning-debug-operations.md)
+10. [Lab 08：Processor 排程與執行控制](08-scheduling.md)
+11. [Lab 09：NiFi Cluster 入門與多節點執行觀念](09-clustering.md)
+12. [Lab 10：Query、Formatter 與 Expression Language 實戰](10-query-format-expression-language.md)
+13. [速查表：常用 Processor 與排錯關鍵字](99-cheatsheet.md)
 
 ## 補充閱讀
 
@@ -85,8 +86,10 @@ docker compose ps
 - QueryRecord：https://nifi.apache.org/components/org.apache.nifi.processors.standard.QueryRecord/
 - UpdateRecord：https://nifi.apache.org/components/org.apache.nifi.processors.standard.UpdateRecord/
 - DBCPConnectionPool：https://nifi.apache.org/components/org.apache.nifi.dbcp.DBCPConnectionPool/
+- ExecuteSQLRecord：https://nifi.apache.org/components/org.apache.nifi.processors.standard.ExecuteSQLRecord/
 - PutDatabaseRecord：https://nifi.apache.org/components/org.apache.nifi.processors.standard.PutDatabaseRecord/
 - Microsoft JDBC Driver for SQL Server：https://learn.microsoft.com/en-us/sql/connect/jdbc/microsoft-jdbc-driver-for-sql-server
+- SQL Server INFORMATION_SCHEMA.COLUMNS：https://learn.microsoft.com/en-us/sql/relational-databases/system-information-schema-views/columns-transact-sql
 - NiFi Registry：https://nifi.apache.org/registry.html
 - GitHubFlowRegistryClient：https://nifi.apache.org/components/org.apache.nifi.github.GitHubFlowRegistryClient/
 - GitLabFlowRegistryClient：https://nifi.apache.org/components/org.apache.nifi.gitlab.GitLabFlowRegistryClient/
@@ -105,6 +108,8 @@ docker compose ps
 - 用 UpdateRecord + RecordPath 修改欄位。
 - 用 Expression Language 對 record 欄位做字串替換、遮罩與日期格式化。
 - 建立 DBCPConnectionPool，理解 MSSQL JDBC driver、URL、帳密與 validation 的關係。
+- 用 ExecuteSQLRecord 從 MSSQL 查 table metadata 與資料列。
+- 用 ExecuteSQLRecord + PutDatabaseRecord 做本地 DB 到本地 DB 的資料複製。
 - 設定 Timer driven、CRON driven、Concurrent Tasks 與基本執行策略。
 - 看懂 cluster 中 `All Nodes`、`Primary Node`、connection load balancing 與 cluster state 的基本影響。
 - 用 queue、bulletin、provenance、logs 找錯。

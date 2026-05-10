@@ -38,6 +38,7 @@
 | record 查詢 | `QueryRecord` | 用 SQL-like 語法篩選 record |
 | record 更新 | `UpdateRecord` | 用 RecordPath 修改欄位 |
 | record 驗證 | `ValidateRecord` | 檢查 record 是否符合 schema |
+| 讀資料庫 | `ExecuteSQLRecord` | 執行 SQL query，將結果輸出成 records |
 | 寫資料庫 | `PutDatabaseRecord` | 將 records 寫入 DB |
 | 讀檔 | `GetFile` / `ListFile` + `FetchFile` | 讀取檔案來源 |
 | 寫檔 | `PutFile` | 將 FlowFile content 寫出檔案 |
@@ -112,6 +113,37 @@ SELECT * FROM FLOWFILE WHERE "status" <> 'CANCELLED' OR "status" IS NULL
 ```
 
 注意：`QueryRecord` 的 `original` 是完整原始 FlowFile，不是不符合條件的 records。不要把 `original` 當 unmatched 使用，否則可能重複處理 matched records。
+
+## 常用 ExecuteSQLRecord SQL
+
+查 MSSQL table 欄位與型別：
+
+```sql
+SELECT
+    ORDINAL_POSITION,
+    COLUMN_NAME,
+    DATA_TYPE,
+    CHARACTER_MAXIMUM_LENGTH,
+    NUMERIC_PRECISION,
+    NUMERIC_SCALE,
+    IS_NULLABLE
+FROM INFORMATION_SCHEMA.COLUMNS
+WHERE TABLE_SCHEMA = 'dbo'
+  AND TABLE_NAME = 'nifi_training_orders'
+ORDER BY ORDINAL_POSITION
+```
+
+讀取來源 table 資料：
+
+```sql
+SELECT
+    order_id,
+    customer,
+    amount,
+    status
+FROM dbo.nifi_training_orders
+ORDER BY DbId
+```
 
 ## 常用 RecordPath
 

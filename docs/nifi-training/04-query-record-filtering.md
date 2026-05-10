@@ -106,7 +106,9 @@ Auto-terminate：
 
 ## Step 7：執行與觀察
 
-執行後查看 log：
+1. 全選 Processor，按 Start。
+2. 等一筆資料通過後，停止 `GenerateFlowFile`。
+3. 查看 log：
 
 ```powershell
 docker compose logs --tail=200 nifi
@@ -114,7 +116,11 @@ docker compose logs --tail=200 nifi
 
 你應該只看到金額大於等於 `100` 的 records。
 
+預期 `large_orders` 輸出 2 筆：`1001` 和 `1003`。`original` 已在 Step 6 auto-terminate，所以這一步不會另外看到原始完整 CSV 輸出。
+
 ## 練習題
+
+開始練習前，先停止 `GenerateFlowFile`。新增 `QueryRecord` dynamic property 後會產生新的 relationship，必須先把 relationship 連出去或 auto-terminate，再重新啟動流程。
 
 ### 練習 1：修改 QueryRecord，新增 cancelled_orders 輸出
 
@@ -127,6 +133,8 @@ docker compose logs --tail=200 nifi
 | `cancelled_orders` | `SELECT "order_id", "customer", "status" FROM FLOWFILE WHERE "status" = 'CANCELLED'` |
 
 這會新增一條 relationship：`cancelled_orders`。
+
+此時先不要啟動流程。先完成練習 2，把 `cancelled_orders` 接到下游 `LogAttribute`，否則 `QueryRecord` 會因為新 relationship 沒處理而 invalid。
 
 ### 練習 2：新增 LogAttribute，接 cancelled_orders
 
@@ -172,6 +180,7 @@ Auto-terminate：
 - SQL 欄位名稱打錯：會走 `failure`。
 - Reader 推斷型別不如預期：金額比較失敗時，先確認 `Schema Access Strategy`，必要時改用明確 schema。
 - 忘記處理 `original`：QueryRecord 會保留原始 FlowFile，未連線或未 auto-terminate 會造成 invalid。
+- 觀察到 `original` 像是 binary：`original` 是原始 FlowFile，不是查詢結果；先確認 `GenerateFlowFile` 的 `Custom Text` 是否仍是 CSV 純文字，以及你看的是否為 FlowFile content，而不是 component 設定或下載檔的原始 bytes。
 
 ## 完成檢查
 

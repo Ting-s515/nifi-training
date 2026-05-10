@@ -115,15 +115,17 @@ docker compose logs --tail=160 nifi
 
 ### Step 1：複製第一條流程
 
-1. 複製 Part 2 的三個 Processor。
-2. 貼到同一個 Process Group 旁邊。
-3. 將新的 `LogAttribute` 的 `Log Prefix` 改成：
+1. 先確認 Part 2 的 `GenerateFlowFile` 已停止。
+2. 複製 Part 2 的三個 Processor。
+3. 貼到同一個 Process Group 旁邊。
+4. 新貼上的 Processor 先保持 stopped，等本 Part 設定完成後再啟動。
+5. 將新的 `LogAttribute` 的 `Log Prefix` 改成：
 
 ```text
 lab08-cron
 ```
 
-4. 將新的 `UpdateAttribute` 裡 `schedule.type` 改成：
+6. 將新的 `UpdateAttribute` 裡 `schedule.type` 改成：
 
 ```text
 cron
@@ -174,22 +176,28 @@ docker compose logs --tail=220 nifi
 
 1. 建立新的 Processor：`GenerateFlowFile`。
 2. 建立新的 Processor：`LogAttribute`。
-3. 設定 `LogAttribute`：
+3. 設定 `GenerateFlowFile`：
+
+| Property | Value |
+| --- | --- |
+| `Custom Text` | `concurrent test` |
+
+4. 設定 `LogAttribute`：
 
 | Property | Value |
 | --- | --- |
 | `Log Prefix` | `lab08-concurrent` |
 | `Log Payload` | `false` |
 
-4. 連線：
+5. 連線：
 
 ```mermaid
 flowchart LR
     G[GenerateFlowFile] -- success --> L[LogAttribute]
 ```
 
-5. 將 `LogAttribute` 的 `success` auto-terminate。
-6. 將 `GenerateFlowFile` 設定為：
+6. 將 `LogAttribute` 的 `success` auto-terminate。
+7. 將 `GenerateFlowFile` 設定為：
 
 | Setting | Value |
 | --- | --- |
@@ -197,14 +205,14 @@ flowchart LR
 | `Run Schedule` | `0 sec` |
 | `Concurrent Tasks` | `1` |
 
-7. 啟動 `LogAttribute`。
-8. 啟動 `GenerateFlowFile`，等待 5 秒後停止。
-9. 觀察 connection queue、Processor stats 或 log 數量。
-10. 清空 queue，避免上一輪資料影響比較。
-11. 修改 Processor：`GenerateFlowFile`。
-12. 將 `Concurrent Tasks` 改成 `2`。
-13. 再啟動 5 秒後停止。
-14. 比較 queue、Processor stats 或 log 數量。
+8. 啟動 `LogAttribute`。
+9. 啟動 `GenerateFlowFile`，等待 5 秒後停止。
+10. 觀察 connection queue、Processor stats 或 log 數量。
+11. 清空這條練習 connection 的 queue，避免上一輪資料影響比較。
+12. 修改 Processor：`GenerateFlowFile`。
+13. 將 `Concurrent Tasks` 改成 `2`。
+14. 再啟動 5 秒後停止。
+15. 比較 queue、Processor stats 或 log 數量。
 
 結論：`0 sec` 代表盡可能執行，不適合作為新手練習或低頻公司批次排程的預設值。
 

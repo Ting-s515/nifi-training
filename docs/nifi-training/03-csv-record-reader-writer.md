@@ -113,17 +113,21 @@ docker compose logs --tail=180 nifi
 
 練習排錯：
 
-1. 修改位置：Process Group 空白處右鍵，選 `Configure`。
-2. 進入 `Controller Services`。
-3. 找到本 Lab 建立的 `CSVReader`。
-4. 對 `CSVReader` 按 `Disable`。
-5. 修改位置：回到 Processor `ConvertRecord`。
-6. 打開 `ConvertRecord` 設定，按 `Perform Validation`。
-7. 觀察錯誤訊息，應該會看到 `Record Reader` 參照的 Controller Service disabled。
-8. 回到 `Controller Services`，把 `CSVReader` 按 `Enable`。
-9. 再回 `ConvertRecord` 按 `Perform Validation`。
+1. 先停止本 Lab 的所有 Processor。
+2. 修改位置：Process Group 空白處右鍵，選 `Configure`。
+3. 進入 `Controller Services`。
+4. 找到本 Lab 建立的 `CSVReader`。
+5. 對 `CSVReader` 按 `Disable`。
+6. 若 NiFi 提示有 referencing components，確認只影響本 Lab 的 `ConvertRecord` 後再繼續。
+7. 修改位置：回到 Processor `ConvertRecord`。
+8. 打開 `ConvertRecord` 設定，按 `Perform Validation`。
+9. 觀察錯誤訊息，應該會看到 `Record Reader` 參照的 Controller Service disabled。
+10. 回到 `Controller Services`，把 `CSVReader` 按 `Enable`。
+11. 再回 `ConvertRecord` 按 `Perform Validation`。
 
 這會重現你之前遇到的 Controller Service disabled 問題。
+
+練習結束後，確認 `CSVReader` 和 `CSVRecordSetWriter` 都是 `Enabled`，再繼續後面的 Lab。不要把故意製造的 disabled 狀態留到下一章。
 
 ## 完成檢查
 

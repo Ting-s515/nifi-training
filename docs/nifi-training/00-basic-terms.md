@@ -18,7 +18,7 @@ flowchart LR
         PA[Processor A]
         Q[Connection Queue]
         PB[Processor B]
-        CS[Controller Service<br/>CSVReader / DBCPConnectionPool]
+        CS[Controller Service</br>CSVReader / DBCPConnectionPool]
         PA -- relationship --> Q
         Q -- relationship --> PB
         Q -. FlowFile 等待下游處理 .-> PB

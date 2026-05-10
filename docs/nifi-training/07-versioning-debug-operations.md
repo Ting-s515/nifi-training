@@ -4,6 +4,19 @@
 
 預估時間：45 分鐘。
 
+## 你會做出什麼
+
+```mermaid
+flowchart TD
+    A[版本管理] --> B[Queue 排查]
+    B --> C[Bulletin 排查]
+    C --> D[Provenance 查資料歷程]
+    D --> E[Logs 查系統訊息]
+    E --> F[Docker 啟停與 Volume]
+```
+
+這一章不是建立新資料轉換流程，而是用前面 Lab 的流程練習日常維護。每個 Part 都會對應公司專案常見的排錯入口。
+
 ## Part 1：版本管理觀念
 
 NiFi UI 上的 flow 會自動保存到 NiFi 的 flow 設定檔；你不需要按 Save。但公司專案不能只依賴單機檔案，應該使用版本管理流程。
@@ -53,16 +66,17 @@ route cancelled orders to rejection path
 
 練習：
 
-1. 進入 `training-lab-04`。
-2. 修改 Processor：停止接在 `large_orders` 後面的 `LogAttribute`。
-3. 保持上游 `GenerateFlowFile` 和 `QueryRecord` 可以執行。
-4. 啟動上游一次，或短暫啟動 `GenerateFlowFile` 後立刻停止。
-5. 觀察 `QueryRecord -> LogAttribute` 之間的 connection queue 是否出現數字。
-6. 點 connection queue。
-7. 使用 `List queue` 檢查 FlowFile。
-8. 打開其中一筆 FlowFile，查看 `Attributes` 與 `Content`。
-9. 重新啟動下游 `LogAttribute`。
-10. 確認 queue 被清空。
+1. 進入已完成的 `training-lab-04`。
+2. 先確認 `training-lab-04` 沒有殘留 queue；若有測試資料，先清掉或讓下游處理完。
+3. 修改 Processor：停止接在 `large_orders` 後面的 `LogAttribute`。
+4. 保持上游 `GenerateFlowFile` 和 `QueryRecord` 可以執行。
+5. 啟動上游一次，或短暫啟動 `GenerateFlowFile` 後立刻停止。
+6. 觀察 `QueryRecord -> LogAttribute` 之間的 connection queue 是否出現數字。
+7. 點 connection queue。
+8. 使用 `List queue` 檢查 FlowFile。
+9. 打開其中一筆 FlowFile，查看 `Attributes` 與 `Content`。
+10. 重新啟動下游 `LogAttribute`。
+11. 確認 queue 被清空。
 
 這個練習的重點是：資料不是消失，而是停在 connection queue 等待下游 Processor 處理。
 

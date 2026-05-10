@@ -9,6 +9,19 @@
 - A 段：在目前專案環境確認 JDBC driver 掛載。
 - B 段：用公司或本機測試資料庫實作 `PutDatabaseRecord`。
 
+## 你會做出什麼
+
+```mermaid
+flowchart LR
+    G[GenerateFlowFile] --> P[PutDatabaseRecord]
+    P -- success --> DB[(Database)]
+    P -- failure --> L[LogAttribute]
+    R[CSVReader] -. reads records .-> P
+    C[DBCPConnectionPool] -. JDBC connection .-> P
+```
+
+`CSVReader` 負責讀取 CSV records，`DBCPConnectionPool` 負責提供資料庫連線，`PutDatabaseRecord` 負責把 records 寫入資料表。失敗路徑會先接到 `LogAttribute`，方便你看到 DB 錯誤。
+
 ## A 段：確認 JDBC driver
 
 目前 `docker-compose.yaml` 已把 JDBC jar 掛進 NiFi container：
@@ -27,9 +40,19 @@ docker exec nifi-service sh -lc "ls -l /tmp/*jdbc*.jar /tmp/mysql-connector-java
 
 `DBCPConnectionPool` 的 `Database Driver Locations` 可以填這些 container 內路徑。
 
-## B 段：建立 DBCPConnectionPool
+## B 段：實作 CSV 寫入資料庫
 
-在 Process Group 建立 Controller Service：`DBCPConnectionPool`。
+以下步驟都在 `training-lab-06` Process Group 內進行。先建立 Process Group，再建立 Controller Service，避免新手不知道 service 應該放在哪一層。
+
+## Step 1：建立 Process Group
+
+建立 `training-lab-06`，進入該 Process Group。
+
+## Step 2：建立 DBCPConnectionPool
+
+在 Process Group 空白處右鍵，選 `Configure`，進入 `Controller Services`。
+
+建立 Controller Service：`DBCPConnectionPool`。
 
 常用設定：
 
@@ -58,11 +81,7 @@ Athena 範例：
 
 設定完成後，按 `Enable`。如果 Enable 失敗，先看錯誤訊息，通常是 URL、driver class、driver jar path、帳密或網路連線問題。
 
-## Step 1：建立 Process Group
-
-建立 `training-lab-06`，進入該 Process Group。
-
-## Step 2：建立 CSV Reader
+## Step 3：建立 CSV Reader
 
 建立 `CSVReader`：
 
@@ -72,7 +91,7 @@ Athena 範例：
 
 Enable。
 
-## Step 3：準備資料表
+## Step 4：準備資料表
 
 目標資料表範例：
 
@@ -87,7 +106,7 @@ CREATE TABLE nifi_training_orders (
 
 正式環境請不要直接用 production table 練習。先用 sandbox schema 或測試資料庫。
 
-## Step 4：建立 GenerateFlowFile
+## Step 5：建立 GenerateFlowFile
 
 設定：
 
@@ -100,7 +119,7 @@ order_id,customer,amount,status
 1002,Bob,35.00,CANCELLED
 ```
 
-## Step 5：建立 PutDatabaseRecord
+## Step 6：建立 PutDatabaseRecord
 
 新增 Processor：`PutDatabaseRecord`。
 
@@ -115,8 +134,8 @@ order_id,customer,amount,status
 
 Auto-terminate：
 
-- `success`
-- `failure` 可先連到 `LogAttribute`，不要一開始就 auto-terminate，方便排錯。
+- `PutDatabaseRecord` 的 `success` 可以先 auto-terminate。
+- `PutDatabaseRecord` 的 `failure` 先連到 `LogAttribute`，不要一開始就 auto-terminate，方便排錯。
 
 建議練習做法：
 
@@ -128,12 +147,13 @@ Auto-terminate：
 
 成功路徑可以先 auto-terminate，因為資料已寫入資料庫；失敗路徑先保留觀察，方便看 DB 錯誤訊息。
 
-## Step 6：執行與驗證
+## Step 7：執行與驗證
 
-1. Start `PutDatabaseRecord`。
-2. Start `GenerateFlowFile`。
-3. 等一筆資料送出後，停止 `GenerateFlowFile`。
-4. 到 DB 查詢：
+1. Start `lab06-db-failure` 這個 `LogAttribute`。
+2. Start `PutDatabaseRecord`。
+3. Start `GenerateFlowFile`。
+4. 等一筆資料送出後，停止 `GenerateFlowFile`。
+5. 到 DB 查詢：
 
 ```sql
 SELECT * FROM nifi_training_orders;

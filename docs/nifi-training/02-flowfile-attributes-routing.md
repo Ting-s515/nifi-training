@@ -104,6 +104,8 @@ docker compose logs --tail=160 nifi
 
 ## 練習題
 
+開始練習前，先停止 `GenerateFlowFile`，避免你修改 route 時資料一直進來。每一題調整完設定後，再短暫啟動 `GenerateFlowFile` 觀察結果。
+
 ### 練習 1：修改 RouteOnAttribute，新增 data.kind route
 
 修改 Processor：`RouteOnAttribute`
@@ -188,10 +190,12 @@ Auto-terminate：
 
 確認方式：
 
-1. 確認 `RouteOnAttribute` 的 `unmatched` 有 auto-terminate，或暫時接到另一個 `LogAttribute` 觀察。
-2. Apply 後重新啟動流程。
-3. `csv_orders` 和 `orders_data` 都不會輸出 log。
-4. 若 `unmatched` 接到 `LogAttribute`，會看到資料走到 `unmatched`。
+1. 若只想讓資料結束，確認 `RouteOnAttribute` 的 `unmatched` 有 auto-terminate。
+2. 若想觀察 `unmatched`，先取消 `unmatched` 的 auto-terminate，再新增一個 `LogAttribute` 並把 `unmatched` 連過去。
+3. 新增的 `LogAttribute` 要把 `success` auto-terminate。
+4. Apply 後重新啟動流程。
+5. `csv_orders` 和 `orders_data` 都不會輸出 log。
+6. 若 `unmatched` 接到 `LogAttribute`，會看到資料走到 `unmatched`。
 
 ### 練習 4：改回多條 route 同時符合
 
@@ -216,6 +220,8 @@ Auto-terminate：
 - 一筆 FlowFile 是否會同時送到兩條 relationship？
 - 兩個 `LogAttribute` 是否都會印出 log？
 - `RouteOnAttribute.Route` attribute 會如何呈現？
+
+如果你在練習 3 額外建立了 `unmatched` 的 `LogAttribute`，這一題可以保留它；因為 `unmatched` 不符合時不會收到資料。重點是確認 `csv_orders` 與 `orders_data` 兩條已符合的 route 都有被處理。
 
 這個練習的重點是分清楚：
 

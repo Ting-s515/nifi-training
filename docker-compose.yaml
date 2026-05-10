@@ -14,6 +14,7 @@ services:
             - "./aws_athena_jdbc.jar:/tmp/aws_athena_jdbc.jar"
             - "./aws_redshift_jdbc.jar:/tmp/aws_redshift_jdbc.jar"
             - "./mysql-connector-java-8.0.26.jar:/tmp/mysql-connector-java-8.0.26.jar"
+            - "./mssql-jdbc-13.4.0.jre11.jar:/tmp/mssql-jdbc.jar"
             - nifi_conf:/opt/nifi/nifi-current/conf
             - nifi_content_repository:/opt/nifi/nifi-current/content_repository
             - nifi_database_repository:/opt/nifi/nifi-current/database_repository

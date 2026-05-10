@@ -36,16 +36,22 @@ NiFi container 內必須看得到 MSSQL JDBC driver jar，`DBCPConnectionPool` �
 | `Database Driver Class Name` | 指定要用哪個 Java driver class |
 | `Database Driver Locations` | 指定 driver jar 在 NiFi container 內的位置 |
 
-本 Lab 建議使用 Microsoft JDBC Driver for SQL Server。先把 driver jar 放到專案根目錄，例如：
+本 Lab 建議使用 Microsoft JDBC Driver for SQL Server。下載時可搜尋：
 
 ```text
-mssql-jdbc-12.10.0.jre11.jar
+download microsoft jdbc driver for sql server
+```
+
+下載後，把 driver jar 放到專案根目錄，例如：
+
+```text
+mssql-jdbc-13.4.0.jre11.jar
 ```
 
 接著在 `docker-compose.yaml` 的 `nifi.volumes` 加上這一行：
 
 ```yaml
-- "./mssql-jdbc-12.10.0.jre11.jar:/tmp/mssql-jdbc.jar"
+- "./mssql-jdbc-13.4.0.jre11.jar:/tmp/mssql-jdbc.jar"
 ```
 
 如果你使用不同版本的 driver jar，左邊檔名要跟實際檔名一致；右邊 container 內路徑建議固定成 `/tmp/mssql-jdbc.jar`，後面 DBCP 設定比較簡單。

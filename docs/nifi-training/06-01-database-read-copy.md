@@ -85,7 +85,7 @@ GO
 IF OBJECT_ID(N'dbo.nifi_training_orders_copy', N'U') IS NULL
 BEGIN
     CREATE TABLE dbo.nifi_training_orders_copy (
-        TargetDbId INT IDENTITY(1,1) PRIMARY KEY,
+        DbId INT IDENTITY(1,1) PRIMARY KEY,
         order_id VARCHAR(20),
         customer VARCHAR(100),
         amount DECIMAL(12, 2),
@@ -106,7 +106,7 @@ TRUNCATE TABLE dbo.nifi_training_orders_copy;
 GO
 ```
 
-說明：目標表使用 `TargetDbId` 當自增主鍵，不直接複製來源表的 `DbId`。這樣重跑練習時，不會因為來源主鍵值重複而卡住。
+說明：目標表有自己的 `DbId` 自增主鍵，不直接複製來源表的 `DbId` 值。這樣重跑練習時，不會因為來源主鍵值重複而卡住。
 
 ## Part 2：建立 Process Group
 
@@ -313,7 +313,7 @@ ORDER BY DbId
 | `Run Schedule` | `60 sec` |
 | `Concurrent Tasks` | `1` |
 
-說明：這裡刻意不查來源表的 `DbId`，因為目標表有自己的 `TargetDbId` identity 欄位。跨 DB 複製資料時，不要不經思考就把來源主鍵硬塞到目標表。
+說明：這裡刻意不查來源表的 `DbId`，因為目標表有自己的 `DbId` identity 欄位。跨 DB 複製資料時，不要不經思考就把來源主鍵硬塞到目標表。
 
 ### Step 2：新增 PutDatabaseRecord 寫入目標 table
 
@@ -389,7 +389,7 @@ GO
 
 SELECT *
 FROM dbo.nifi_training_orders_copy
-ORDER BY TargetDbId;
+ORDER BY DbId;
 ```
 
 你應該看到來源 table 的 `order_id`、`customer`、`amount`、`status` 被寫到目標 table。

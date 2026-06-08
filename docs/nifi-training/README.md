@@ -49,6 +49,22 @@ docker compose ps
 
 注意：課程中的 `docker compose ...` 指令都要在專案根目錄執行，也就是目前包含 `docker-compose.yaml` 的工作目錄。若在其他目錄執行，可能會出現 `no such service: nifi` 或找不到 compose 專案。
 
+## 產生雙欄式 HTML 閱讀器
+
+本目錄提供 MDX 版面範本與 MJS 產生器，可將所有課程 Markdown 文件彙整成單一雙欄式 HTML。左欄是可搜尋、可點選的文件目錄，右欄顯示目前選取的課程內容。
+
+在專案根目錄執行：
+
+```powershell
+node docs/nifi-training/mdx/build-training-html.mjs
+```
+
+輸出檔案：
+
+- `docs/nifi-training/index.html`
+
+產出後可直接用瀏覽器開啟 `index.html` 閱讀，不需要啟動 NiFi 或安裝額外 npm 套件。
+
 ## 課程路線
 
 建議照順序完成：

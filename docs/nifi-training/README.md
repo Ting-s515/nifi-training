@@ -87,7 +87,14 @@ docker compose ps
 
 Lab 11 的 `ContentDigestProcessor` 不在 `nifi-sample` 基礎映像內。NiFi runtime 啟動後，
 還要先將課程範例建置成 NAR，再上傳並安裝到 NiFi，Processor type 才會出現在 runtime
-中。請從 repository 根目錄執行：
+中。
+
+這裡先記住兩個產物：`JAR`（Java Archive）保存編譯後的 Java class 與資源；`NAR`
+（NiFi Archive）則是 NiFi extension 的部署封裝，會帶著 Processor JAR 與相依關係進入
+NiFi runtime。完整的 JAR、NAR、ServiceLoader 與 classloader 關係，請先閱讀 Lab 11
+中的「JAR 與 NAR 的基本概念」。
+
+請從 repository 根目錄執行：
 
 ```powershell
 .\examples\nifi-custom-processor\build.ps1
@@ -236,5 +243,6 @@ examples/nifi-custom-processor/
 - 設定 Timer driven、CRON driven、Concurrent Tasks 與基本執行策略。
 - 看懂 cluster 中 `All Nodes`、`Primary Node`、connection load balancing 與 cluster state 的基本影響。
 - 使用 NiFi 公開 Java API 實作、測試並打包一個 custom Processor NAR。
+- 分辨 Java JAR 的程式碼產物責任，以及 NiFi NAR 的部署封裝責任。
 - 透過 REST API 上傳 NAR、建立 Processor 與 connection、執行 `RUN_ONCE` 並讀回 FlowFile attribute。
 - 用 queue、bulletin、provenance、logs 找錯。

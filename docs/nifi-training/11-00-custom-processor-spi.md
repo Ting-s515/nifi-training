@@ -133,25 +133,57 @@ FlowFile 的 `content.digest`。若 NiFi 剛啟動仍在初始化，先等待 AP
 
 ## 先理解本 Lab 的架構關係
 
-### Processor JAR 與 NAR 不是同一件事
+### JAR 與 NAR 的基本概念
+
+`JAR` 是 `Java Archive` 的縮寫，是 Java 編譯產物的封裝格式。它通常包含編譯後的
+`.class`、資源檔與 metadata；在本 Lab 中，`processors` module 會產生 Processor JAR，
+並把 ServiceLoader descriptor 一起放進 JAR，讓 NiFi 後續能找到 Processor class。
+
+`NAR` 是 `NiFi Archive` 的縮寫，是 NiFi extension 的部署封裝。它會帶著 Processor JAR、
+相依關係與 NiFi extension metadata 進入 NiFi 的 extension classloader。NAR 的目的除了
+封裝檔案，也包含隔離不同 extension 相依套件的 classloader 邊界；因此本 Lab 以 NAR
+作為上傳與安裝到 NiFi 的部署單位。
+
+| 產物 | 全名 | 主要責任 | 本 Lab 的觀察點 |
+| --- | --- | --- | --- |
+| Processor JAR | Java Archive | 保存編譯後的 Processor class、資源與 ServiceLoader descriptor | `processors/target/*.jar`、`jar tf` |
+| Custom NAR | NiFi Archive | 封裝 Processor JAR、相依關係與 extension metadata | `nar/target/*.nar`、NAR Manager |
+| NiFi runtime | NiFi 執行環境 | 載入 NAR、建立 classloader、註冊 Processor type 並執行 Flow | `GET /flow/processor-types`、NiFi UI |
 
 ```text
 ContentDigestProcessor.java
-        │ compile
+        │ javac / Maven compiler
         ▼
-processors JAR
-        │ NAR Maven plugin + dependency
+Processor JAR
+        │ NAR Maven plugin + NAR dependencies
         ▼
-custom NAR
-        │ upload to NAR Manager
+Custom NAR
+        │ upload and install
         ▼
 NiFi extension classloader
         │ ServiceLoader descriptor
         ▼
-flow 中可選取的 Processor type
+Flow 中可選取的 Processor type
 ```
 
-NiFi 不應只拿一般 JAR 放進任意 classpath 就當成完成部署。NAR 會描述 extension bundle 的邊界與相依關係，讓 NiFi 以自己的 classloader 載入。這也是本範例把 `processors` 與 `nar` 分成兩個 Maven module 的原因。
+兩個 Maven module 的 `packaging` 直接反映這個責任分工：
+
+`nifi-training-custom-processor-processors/pom.xml`：
+
+```xml
+<packaging>jar</packaging>
+```
+
+`nifi-training-custom-processor-nar/pom.xml`：
+
+```xml
+<packaging>nar</packaging>
+```
+
+`mvn verify` 成功表示 Processor JAR 與測試已通過，並且 NAR 已產生；完成 NAR 上傳與
+安裝後，NiFi 才會在 runtime 中註冊 `ContentDigestProcessor`。後續 Step 3 會從檔案內容
+確認 JAR 與 NAR 的註冊資訊，Part 4 再透過 NAR Manager 與 `processor-types` API 確認
+部署結果。
 
 ### 本範例使用的公開 API
 

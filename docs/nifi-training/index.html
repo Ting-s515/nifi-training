@@ -244,7 +244,12 @@ docker compose ps
 <h3 id="doc-readme-b3356305--lab-11-的額外初始化">Lab 11 的額外初始化</h3>
 <p>Lab 11 的 <code>ContentDigestProcessor</code> 不在 <code>nifi-sample</code> 基礎映像內。NiFi runtime 啟動後，
 還要先將課程範例建置成 NAR，再上傳並安裝到 NiFi，Processor type 才會出現在 runtime
-中。請從 repository 根目錄執行：</p>
+中。</p>
+<p>這裡先記住兩個產物：<code>JAR</code>（Java Archive）保存編譯後的 Java class 與資源；<code>NAR</code>
+（NiFi Archive）則是 NiFi extension 的部署封裝，會帶著 Processor JAR 與相依關係進入
+NiFi runtime。完整的 JAR、NAR、ServiceLoader 與 classloader 關係，請先閱讀 Lab 11
+中的「JAR 與 NAR 的基本概念」。</p>
+<p>請從 repository 根目錄執行：</p>
 <pre><code class="language-powershell">.\examples\nifi-custom-processor\build.ps1
 .\examples\nifi-custom-processor\scripts\setup-flow.ps1
 </code></pre>
@@ -360,6 +365,7 @@ npm.cmd --prefix ./docs/nifi-training run build
 <li>設定 Timer driven、CRON driven、Concurrent Tasks 與基本執行策略。</li>
 <li>看懂 cluster 中 <code>All Nodes</code>、<code>Primary Node</code>、connection load balancing 與 cluster state 的基本影響。</li>
 <li>使用 NiFi 公開 Java API 實作、測試並打包一個 custom Processor NAR。</li>
+<li>分辨 Java JAR 的程式碼產物責任，以及 NiFi NAR 的部署封裝責任。</li>
 <li>透過 REST API 上傳 NAR、建立 Processor 與 connection、執行 <code>RUN_ONCE</code> 並讀回 FlowFile attribute。</li>
 <li>用 queue、bulletin、provenance、logs 找錯。</li>
 </ul>
@@ -5564,22 +5570,69 @@ FlowFile 的 <code>content.digest</code>。若 NiFi 剛啟動仍在初始化，�
 <li>NiFi 透過公開 API 載入、驗證與執行元件。</li>
 </ol>
 <h2 id="doc-11-00-custom-processor-spi-3fd4f126--先理解本-lab-的架構關係">先理解本 Lab 的架構關係</h2>
-<h3 id="doc-11-00-custom-processor-spi-3fd4f126--processor-jar-與-nar-不是同一件事">Processor JAR 與 NAR 不是同一件事</h3>
+<h3 id="doc-11-00-custom-processor-spi-3fd4f126--jar-與-nar-的基本概念">JAR 與 NAR 的基本概念</h3>
+<p><code>JAR</code> 是 <code>Java Archive</code> 的縮寫，是 Java 編譯產物的封裝格式。它通常包含編譯後的
+<code>.class</code>、資源檔與 metadata；在本 Lab 中，<code>processors</code> module 會產生 Processor JAR，
+並把 ServiceLoader descriptor 一起放進 JAR，讓 NiFi 後續能找到 Processor class。</p>
+<p><code>NAR</code> 是 <code>NiFi Archive</code> 的縮寫，是 NiFi extension 的部署封裝。它會帶著 Processor JAR、
+相依關係與 NiFi extension metadata 進入 NiFi 的 extension classloader。NAR 的目的除了
+封裝檔案，也包含隔離不同 extension 相依套件的 classloader 邊界；因此本 Lab 以 NAR
+作為上傳與安裝到 NiFi 的部署單位。</p>
+<table>
+<thead>
+<tr>
+<th>產物</th>
+<th>全名</th>
+<th>主要責任</th>
+<th>本 Lab 的觀察點</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Processor JAR</td>
+<td>Java Archive</td>
+<td>保存編譯後的 Processor class、資源與 ServiceLoader descriptor</td>
+<td><code>processors/target/*.jar</code>、<code>jar tf</code></td>
+</tr>
+<tr>
+<td>Custom NAR</td>
+<td>NiFi Archive</td>
+<td>封裝 Processor JAR、相依關係與 extension metadata</td>
+<td><code>nar/target/*.nar</code>、NAR Manager</td>
+</tr>
+<tr>
+<td>NiFi runtime</td>
+<td>NiFi 執行環境</td>
+<td>載入 NAR、建立 classloader、註冊 Processor type 並執行 Flow</td>
+<td><code>GET /flow/processor-types</code>、NiFi UI</td>
+</tr>
+</tbody>
+</table>
 <pre><code class="language-text">ContentDigestProcessor.java
-        │ compile
+        │ javac / Maven compiler
         ▼
-processors JAR
-        │ NAR Maven plugin + dependency
+Processor JAR
+        │ NAR Maven plugin + NAR dependencies
         ▼
-custom NAR
-        │ upload to NAR Manager
+Custom NAR
+        │ upload and install
         ▼
 NiFi extension classloader
         │ ServiceLoader descriptor
         ▼
-flow 中可選取的 Processor type
+Flow 中可選取的 Processor type
 </code></pre>
-<p>NiFi 不應只拿一般 JAR 放進任意 classpath 就當成完成部署。NAR 會描述 extension bundle 的邊界與相依關係，讓 NiFi 以自己的 classloader 載入。這也是本範例把 <code>processors</code> 與 <code>nar</code> 分成兩個 Maven module 的原因。</p>
+<p>兩個 Maven module 的 <code>packaging</code> 直接反映這個責任分工：</p>
+<p><code>nifi-training-custom-processor-processors/pom.xml</code>：</p>
+<pre><code class="language-xml">&#x3C;packaging>jar&#x3C;/packaging>
+</code></pre>
+<p><code>nifi-training-custom-processor-nar/pom.xml</code>：</p>
+<pre><code class="language-xml">&#x3C;packaging>nar&#x3C;/packaging>
+</code></pre>
+<p><code>mvn verify</code> 成功表示 Processor JAR 與測試已通過，並且 NAR 已產生；完成 NAR 上傳與
+安裝後，NiFi 才會在 runtime 中註冊 <code>ContentDigestProcessor</code>。後續 Step 3 會從檔案內容
+確認 JAR 與 NAR 的註冊資訊，Part 4 再透過 NAR Manager 與 <code>processor-types</code> API 確認
+部署結果。</p>
 <h3 id="doc-11-00-custom-processor-spi-3fd4f126--本範例使用的公開-api">本範例使用的公開 API</h3>
 <table>
 <thead>

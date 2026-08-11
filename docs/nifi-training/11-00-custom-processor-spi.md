@@ -494,6 +494,39 @@ GET  /controller/nar-manager/nars/{id}
 GET  /flow/processor-types
 ```
 
+### 認證流程：帳密換取 Bearer token
+
+`POST /access/token` 是認證的第一階段。腳本只在這一步讀取根目錄 `.env` 的
+`NIFI_USERNAME` 與 `NIFI_PASSWORD`，並將兩個值放入 `application/x-www-form-urlencoded`
+request body；它不會把 `.env` 檔案本身傳給 NiFi，也不會在每個 API request 重送帳密。
+
+```text
+.env 帳密
+   │ 只送給 POST /nifi-api/access/token
+   ▼
+NiFi Login Identity Provider 驗證
+   │ 驗證成功
+   ▼
+NiFi 回傳 JWT access token
+   │ Authorization: Bearer <token>
+   ▼
+NiFi 驗證 token，再依身份檢查 access policy
+   ▼
+執行 NAR、Processor、Process Group 與 Queue API
+```
+
+後續 REST API 使用回傳的 token：
+
+```http
+Authorization: Bearer <token>
+```
+
+NiFi 會驗證 token 的簽章、有效期限、撤銷狀態與身份資訊，再判斷該身份是否具有目標
+resource 的權限。因此「Bearer token 是否相同」不是重新比對 `.env` 密碼，而是確認 token
+確實由可信任的 NiFi authentication service 簽發且仍然有效。token 無效或過期通常回傳
+`401`；token 有效但沒有 resource policy 則回傳 `403`。延伸閱讀：[Apache NiFi REST API](https://nifi.apache.org/nifi-docs/rest-api.html)、
+[NiFi Administration Guide](https://nifi.apache.org/nifi-docs/administration-guide.html)。
+
 上傳 response 的 identifier 只代表安裝請求建立，腳本會等到 `installComplete = true`
 才查找 Processor type。這個等待是 why：NiFi 尚未完成 extension classloader 建立時，
 立即呼叫建立 Processor 可能會收到 type not found。

@@ -47,6 +47,22 @@ curl.exe -k -H "Authorization: Bearer $token" `
   "https://localhost:8443/nifi-api/flow/current-user"
 ```
 
+### 帳密與 Bearer token 的責任分工
+
+這是兩階段流程：`.env` 帳密只用來向 `POST /nifi-api/access/token` 證明登入身份；NiFi
+驗證成功後回傳 JWT。後續 API 不需要再次傳送帳密，而是將 JWT 放入
+`Authorization: Bearer <token>` header。
+
+```text
+帳密 → token endpoint → NiFi 驗證 → JWT
+JWT  → Bearer header  → NiFi 驗證 token → 身份與 access policy → API 結果
+```
+
+NiFi 驗證 Bearer token 時會檢查簽章、有效期限、撤銷狀態與身份資訊；驗證通過後才會
+檢查 resource policy。`401` 表示 token 無效或已失效，`403` 表示身份有效但缺少操作權限。
+因此 Bearer token 是 NiFi 發行的短期 API 通行證，不是 `.env` 密碼的另一種寫法，也不是
+NiFi Registry 發行的 token。
+
 ## 常見注意事項
 
 - `GET` 多半是查詢。

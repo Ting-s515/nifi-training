@@ -109,6 +109,11 @@ success/failure `LogAttribute`，最後以 Queue 與 FlowFile API 驗證三種�
 `rejected`、`failure` 四條 relationship。完整的 API 與驗證說明請接著閱讀
 [Lab 11：使用 NiFi SPI 開發自訂 Processor](11-00-custom-processor-spi.md)。
 
+部署腳本會先讀取 `.env` 帳密，呼叫 `POST /nifi-api/access/token` 取得 NiFi 回傳的 JWT，
+後續 REST API 再使用 `Authorization: Bearer <token>`。Bearer token 由 NiFi 驗證簽章、
+有效期限、撤銷狀態與身份，再依 access policy 判斷是否允許操作；它不是每次 API 都重新
+傳送 `.env` 帳密。
+
 NAR 已安裝後，可以略過上傳並指定新的 Process Group 名稱：
 
 ```powershell

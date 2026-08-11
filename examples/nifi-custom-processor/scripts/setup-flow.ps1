@@ -117,7 +117,8 @@ try {
         Install-NifiNar -Context $context -NarPath $narPath
     }
 
-    $customType = Get-ProcessorType -Context $context -Type $processorType
+    $customType = Get-ProcessorType -Context $context -Type $processorType `
+        -BundleGroup $processorGroup -BundleArtifact $processorArtifact -BundleVersion $processorVersion
     $customBundle = $customType.bundle
     if ($customBundle.group -ne $processorGroup -or
         $customBundle.artifact -ne $processorArtifact -or
@@ -126,7 +127,8 @@ try {
     }
     Write-Host "已驗證 Processor type：$processorType"
 
-    $readerServiceType = Get-ControllerServiceType -Context $context -Type $readerType
+    $readerServiceType = Get-ControllerServiceType -Context $context -Type $readerType `
+        -BundleGroup $readerGroup -BundleArtifact $readerArtifact -BundleVersion $readerVersion
     $readerBundle = $readerServiceType.bundle
     if ($readerBundle.group -ne $readerGroup -or
         $readerBundle.artifact -ne $readerArtifact -or

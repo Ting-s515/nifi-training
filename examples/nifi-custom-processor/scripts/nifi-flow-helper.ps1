@@ -342,13 +342,22 @@ function Wait-ControllerServiceState {
 function Get-ProcessorType {
     param(
         [object]$Context,
-        [string]$Type
+        [string]$Type,
+        [string]$BundleGroup,
+        [string]$BundleArtifact,
+        [string]$BundleVersion
     )
 
     $types = Invoke-NifiJson -Context $Context -Method "GET" -Path "/flow/processor-types"
-    $match = @($types.processorTypes | Where-Object { $_.type -eq $Type } | Select-Object -First 1)
+    # 同一 Processor type 可以由多個 NAR 版本提供，建立 Flow 前必須鎖定預期 bundle metadata。
+    $match = @($types.processorTypes | Where-Object {
+            $_.type -eq $Type -and
+            ([string]::IsNullOrWhiteSpace($BundleGroup) -or $_.bundle.group -eq $BundleGroup) -and
+            ([string]::IsNullOrWhiteSpace($BundleArtifact) -or $_.bundle.artifact -eq $BundleArtifact) -and
+            ([string]::IsNullOrWhiteSpace($BundleVersion) -or $_.bundle.version -eq $BundleVersion)
+        } | Select-Object -First 1)
     if ($match.Count -eq 0) {
-        throw "NiFi 尚未註冊 Processor type：$Type"
+        throw "NiFi 尚未註冊符合 Bundle 的 Processor type：$Type ($BundleGroup/$BundleArtifact/$BundleVersion)"
     }
 
     return $match[0]
@@ -357,13 +366,22 @@ function Get-ProcessorType {
 function Get-ControllerServiceType {
     param(
         [object]$Context,
-        [string]$Type
+        [string]$Type,
+        [string]$BundleGroup,
+        [string]$BundleArtifact,
+        [string]$BundleVersion
     )
 
     $types = Invoke-NifiJson -Context $Context -Method "GET" -Path "/flow/controller-service-types"
-    $match = @($types.controllerServiceTypes | Where-Object { $_.type -eq $Type } | Select-Object -First 1)
+    # Controller Service 也可能同時存在多個版本，使用相同查找規則避免綁定到錯誤 NAR。
+    $match = @($types.controllerServiceTypes | Where-Object {
+            $_.type -eq $Type -and
+            ([string]::IsNullOrWhiteSpace($BundleGroup) -or $_.bundle.group -eq $BundleGroup) -and
+            ([string]::IsNullOrWhiteSpace($BundleArtifact) -or $_.bundle.artifact -eq $BundleArtifact) -and
+            ([string]::IsNullOrWhiteSpace($BundleVersion) -or $_.bundle.version -eq $BundleVersion)
+        } | Select-Object -First 1)
     if ($match.Count -eq 0) {
-        throw "NiFi 尚未註冊 Controller Service type：$Type"
+        throw "NiFi 尚未註冊符合 Bundle 的 Controller Service type：$Type ($BundleGroup/$BundleArtifact/$BundleVersion)"
     }
 
     return $match[0]

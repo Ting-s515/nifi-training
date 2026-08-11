@@ -121,8 +121,17 @@ NAR 已安裝後，可以略過上傳並指定新的 Process Group 名稱：
   -GroupName training-lab-11-order-policy-rerun
 ```
 
+如果原本已存在同名的課程 Process Group，要讓腳本先停止、清空、刪除舊群組，再建立同名
+的新群組，使用明確的替換參數：
+
+```powershell
+.\examples\nifi-custom-processor\scripts\setup-flow.ps1 `
+  -ReplaceExisting
+```
+
 腳本預設保留 Process Group、但會清掉已驗證的測試 queue；若要刪除本次建立的整個
-group，使用 `-Cleanup`。課程中看到的 NAR 版本為 `2.1.0`，若自行修改 Processor，
+group，使用 `-Cleanup`。`-ReplaceExisting` 會刪除同名舊群組，僅適合課程測試流程；若同名
+群組超過一個，腳本會停止並要求先人工確認。課程中看到的 NAR 版本為 `2.1.0`，若自行修改 Processor，
 請同步更新 Maven version、build script 預期檔名與部署腳本驗證的 bundle version。
 
 注意：課程中的 `docker compose ...` 指令都要在專案根目錄執行，也就是目前包含 `docker-compose.yaml` 的工作目錄。若在其他目錄執行，可能會出現 `no such service: nifi` 或找不到 compose 專案。

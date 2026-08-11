@@ -109,6 +109,17 @@ queue 與 bulletin。若 NAR 已經安裝，可略過上傳並使用新的 group
   -Cleanup
 ```
 
+如果 root 下已經有相同名稱的課程 Process Group，可明確指定替換：
+
+```powershell
+.\examples\nifi-custom-processor\scripts\setup-flow.ps1 `
+  -ReplaceExisting
+```
+
+`-ReplaceExisting` 會依同名群組取得 ID，停止其中的 Processor、清空 Queue、停用
+Controller Service、刪除舊群組，再建立同名的新群組。這是破壞性操作；若同名群組超過一個，
+腳本會停止並列出 ID，避免誤刪錯誤流程。
+
 NAR 已安裝後，建立獨立的政策 Process Group：
 
 ```powershell
@@ -135,8 +146,10 @@ NAR 已安裝後，建立獨立的政策 Process Group：
 | `Reject Threshold` | `5000` |
 | `VIP Customer Tier` | `vip` |
 
-兩支 setup script 都支援 `-SkipNarUpload`、`-GroupName` 與 `-Cleanup`。預設只清除驗證
-過程讀回的 queue；指定 `-Cleanup` 才會刪除該次建立的 Process Group。
+兩支 setup script 都支援 `-SkipNarUpload`、`-GroupName`、`-ReplaceExisting` 與
+`-Cleanup`。預設只清除驗證過程讀回的 queue；指定 `-Cleanup` 才會刪除該次建立的
+Process Group。`-ReplaceExisting` 只應用在課程測試群組，正式流程應先備份或確認 Queue
+資料已不再需要。
 
 ## Processor API 對照
 

@@ -3,6 +3,7 @@ param(
     [string]$BaseUrl = "https://localhost:8443/nifi-api",
     [string]$GroupName = "training-lab-11-json-validation",
     [switch]$SkipNarUpload,
+    [switch]$ReplaceExisting,
     [switch]$Cleanup
 )
 
@@ -138,6 +139,10 @@ try {
     $rootGroupId = $root.processGroupFlow.id
     if ([string]::IsNullOrWhiteSpace($rootGroupId)) {
         throw "無法從 root flow response 取得 Process Group id。"
+    }
+
+    if ($ReplaceExisting) {
+        Remove-NifiProcessGroupIfExists -Context $context -ParentGroupId $rootGroupId -GroupName $GroupName
     }
 
     $groupBody = @{

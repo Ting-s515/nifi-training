@@ -87,6 +87,13 @@ examples/nifi-custom-processor/
   -GroupName training-lab-11-order-policy
 ```
 
+替換同名課程 Process Group（會停止、清空並刪除舊群組）：
+
+```powershell
+.\examples\nifi-custom-processor\scripts\setup-flow.ps1 `
+  -ReplaceExisting
+```
+
 REST-first 驗證順序：
 
 ```text

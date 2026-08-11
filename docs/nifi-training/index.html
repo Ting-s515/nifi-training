@@ -269,8 +269,14 @@ success/failure <code>LogAttribute</code>，最後以 Queue 與 FlowFile API 驗
   -SkipNarUpload `
   -GroupName training-lab-11-order-policy-rerun
 </code></pre>
+<p>如果原本已存在同名的課程 Process Group，要讓腳本先停止、清空、刪除舊群組，再建立同名
+的新群組，使用明確的替換參數：</p>
+<pre><code class="language-powershell">.\examples\nifi-custom-processor\scripts\setup-flow.ps1 `
+  -ReplaceExisting
+</code></pre>
 <p>腳本預設保留 Process Group、但會清掉已驗證的測試 queue；若要刪除本次建立的整個
-group，使用 <code>-Cleanup</code>。課程中看到的 NAR 版本為 <code>2.1.0</code>，若自行修改 Processor，
+group，使用 <code>-Cleanup</code>。<code>-ReplaceExisting</code> 會刪除同名舊群組，僅適合課程測試流程；若同名
+群組超過一個，腳本會停止並要求先人工確認。課程中看到的 NAR 版本為 <code>2.1.0</code>，若自行修改 Processor，
 請同步更新 Maven version、build script 預期檔名與部署腳本驗證的 bundle version。</p>
 <p>注意：課程中的 <code>docker compose ...</code> 指令都要在專案根目錄執行，也就是目前包含 <code>docker-compose.yaml</code> 的工作目錄。若在其他目錄執行，可能會出現 <code>no such service: nifi</code> 或找不到 compose 專案。</p>
 <h2 id="doc-readme-b3356305--產生與啟動雙欄式-html-閱讀器">產生與啟動雙欄式 HTML 閱讀器</h2>
@@ -6113,6 +6119,13 @@ Process Group 與元件仍會保留給你在 UI 觀察。若要刪除本次建�
   -SkipNarUpload `
   -GroupName training-lab-11-json-validation-rerun
 </code></pre>
+<p>若 root 下已存在 <code>training-lab-11-json-validation</code>，可以用同名替換模式重新初始化：</p>
+<pre><code class="language-powershell">.\examples\nifi-custom-processor\scripts\setup-flow.ps1 `
+  -ReplaceExisting
+</code></pre>
+<p>這個參數會先依名稱取得既有群組 ID，停止 Processor、清空 Queue、停用 Controller Service，
+再刪除舊群組並建立新的同名群組。它只刪除同名課程群組，不會移除已安裝的 NAR；若找到多個
+同名群組，腳本會停止並列出 ID，要求先人工確認。</p>
 <p>NAR 安裝完成後，使用第二支腳本建立政策 Process Group：</p>
 <pre><code class="language-powershell">.\examples\nifi-custom-processor\scripts\setup-policy-flow.ps1 `
   -SkipNarUpload `
@@ -6253,6 +6266,7 @@ property 與哪個跨欄位條件造成。</li>
 <li class="task-list-item"><input type="checkbox" disabled> 17 個 <code>nifi-mock</code> 測試全部通過。</li>
 <li class="task-list-item"><input type="checkbox" disabled> JAR 內有兩個 Processor class 與兩行 ServiceLoader descriptor。</li>
 <li class="task-list-item"><input type="checkbox" disabled> NAR 內有 2.1.0 Processor JAR。</li>
+<li class="task-list-item"><input type="checkbox" disabled> 需要重建課程流程時，能說明 <code>-ReplaceExisting</code> 會依 ID 替換同名 Process Group。</li>
 <li class="task-list-item"><input type="checkbox" disabled> <code>GET /flow/processor-types</code> 找得到 <code>ValidateOrderJsonProcessor</code> 與 <code>OrderPolicyProcessor</code>。</li>
 <li class="task-list-item"><input type="checkbox" disabled> <code>GET /flow/controller-service-types</code> 找得到 <code>JsonTreeReader</code>。</li>
 <li class="task-list-item"><input type="checkbox" disabled> Controller Service 使用明確 schema 並成功啟用。</li>
@@ -6649,6 +6663,10 @@ relationship，也要同步更新下游 connection、auto-terminate 與部署驗
   -SkipNarUpload `
   -GroupName training-lab-11-order-policy
 </code></pre>
+<p>替換同名課程 Process Group（會停止、清空並刪除舊群組）：</p>
+<pre><code class="language-powershell">.\examples\nifi-custom-processor\scripts\setup-flow.ps1 `
+  -ReplaceExisting
+</code></pre>
 <p>REST-first 驗證順序：</p>
 <pre><code class="language-text">POST /access/token
 POST /controller/nar-manager/nars/content
@@ -7041,6 +7059,14 @@ $token = curl.exe -k -s -X POST "https://localhost:8443/nifi-api/access/token" `
 <td><code>GET /flow/process-groups/root</code></td>
 </tr>
 <tr>
+<td>查 Process Group flow</td>
+<td><code>GET /flow/process-groups/{id}</code></td>
+</tr>
+<tr>
+<td>查 Process Group 的 Controller Service</td>
+<td><code>GET /flow/process-groups/{id}/controller-services</code></td>
+</tr>
+<tr>
 <td>建立 Processor</td>
 <td><code>POST /process-groups/{id}/processors</code></td>
 </tr>
@@ -7083,6 +7109,10 @@ $token = curl.exe -k -s -X POST "https://localhost:8443/nifi-api/access/token" `
 <tr>
 <td>清空 Queue</td>
 <td><code>POST /flowfile-queues/{id}/drop-requests</code></td>
+</tr>
+<tr>
+<td>刪除 Process Group</td>
+<td><code>DELETE /process-groups/{id}</code></td>
 </tr>
 <tr>
 <td>查 Bulletin</td>
@@ -7153,6 +7183,16 @@ POST /process-groups/{id}/connections
 }
 </code></pre>
 <p>Connection 以 <code>component.source</code>、<code>component.destination</code> 與 <code>selectedRelationships</code> 描述資料流。<code>success</code>、<code>failure</code> 都要連到下游，或在 Processor 設定中 auto-terminate。</p>
+<h3 id="doc-supplement-api-endpoints-fa3546fe--31-替換同名-process-group">3.1 替換同名 Process Group</h3>
+<p>課程腳本的 <code>-ReplaceExisting</code> 不使用名稱直接刪除，而是先查詢 root flow 的直接子群組，
+取得同名群組的 ID，再依序停止 Processor、清空 Queue、停用 Controller Service，最後帶著最新
+<code>revision</code> 呼叫：</p>
+<pre><code class="language-text">GET    /flow/process-groups/{parent-id}
+GET    /flow/process-groups/{group-id}/controller-services
+DELETE /process-groups/{group-id}?version={revision}&#x26;clientId={client-id}
+</code></pre>
+<p>名稱是課程操作的查找條件，ID 才是 REST 更新與刪除的目標。若同一 parent 下找到多個同名群組，
+腳本會停止並列出 ID，要求先人工確認，避免替換到錯誤流程。刪除群組不會移除已安裝的 NAR。</p>
 <h3 id="doc-supplement-api-endpoints-fa3546fe--4-執行一次並讀回-flowfile">4. 執行一次並讀回 FlowFile</h3>
 <pre><code class="language-json">{
   "revision": {

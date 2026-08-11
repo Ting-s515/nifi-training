@@ -67,6 +67,8 @@ curl.exe -k -H "Authorization: Bearer $token" `
 | --- | --- |
 | 查目前使用者 | `GET /flow/current-user` |
 | 查 root flow | `GET /flow/process-groups/root` |
+| 查 Process Group flow | `GET /flow/process-groups/{id}` |
+| 查 Process Group 的 Controller Service | `GET /flow/process-groups/{id}/controller-services` |
 | 建立 Processor | `POST /process-groups/{id}/processors` |
 | 更新 Processor | `PUT /processors/{id}` |
 | 啟停 Processor | `PUT /processors/{id}/run-status` |
@@ -78,6 +80,7 @@ curl.exe -k -H "Authorization: Bearer $token" `
 | 啟停 Controller Service | `PUT /controller-services/{id}/run-status` |
 | 查 Queue FlowFile | `POST /flowfile-queues/{id}/listing-requests` |
 | 清空 Queue | `POST /flowfile-queues/{id}/drop-requests` |
+| 刪除 Process Group | `DELETE /process-groups/{id}` |
 | 查 Bulletin | `GET /flow/bulletin-board` |
 | 查 Provenance | `POST /provenance` |
 | 查 Processor status | `GET /flow/processors/{id}/status` |
@@ -157,6 +160,21 @@ Processor body 的核心欄位：
 ```
 
 Connection 以 `component.source`、`component.destination` 與 `selectedRelationships` 描述資料流。`success`、`failure` 都要連到下游，或在 Processor 設定中 auto-terminate。
+
+### 3.1 替換同名 Process Group
+
+課程腳本的 `-ReplaceExisting` 不使用名稱直接刪除，而是先查詢 root flow 的直接子群組，
+取得同名群組的 ID，再依序停止 Processor、清空 Queue、停用 Controller Service，最後帶著最新
+`revision` 呼叫：
+
+```text
+GET    /flow/process-groups/{parent-id}
+GET    /flow/process-groups/{group-id}/controller-services
+DELETE /process-groups/{group-id}?version={revision}&clientId={client-id}
+```
+
+名稱是課程操作的查找條件，ID 才是 REST 更新與刪除的目標。若同一 parent 下找到多個同名群組，
+腳本會停止並列出 ID，要求先人工確認，避免替換到錯誤流程。刪除群組不會移除已安裝的 NAR。
 
 ### 4. 執行一次並讀回 FlowFile
 

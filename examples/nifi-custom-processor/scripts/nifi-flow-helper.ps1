@@ -154,6 +154,41 @@ function Get-ControllerServiceEntity {
     return Invoke-NifiJson -Context $Context -Method "GET" -Path "/controller-services/$ControllerServiceId"
 }
 
+function Get-NifiProcessGroupFlow {
+    param(
+        [object]$Context,
+        [string]$GroupId
+    )
+
+    return Invoke-NifiJson -Context $Context -Method "GET" -Path "/flow/process-groups/$GroupId"
+}
+
+function Get-NifiProcessGroupControllerServices {
+    param(
+        [object]$Context,
+        [string]$GroupId
+    )
+
+    # Flow summary 不包含 Controller Service，替換群組前需用專用 endpoint 取得完整清單。
+    $entity = Invoke-NifiJson -Context $Context -Method "GET" `
+        -Path "/flow/process-groups/$GroupId/controller-services"
+    return @($entity.controllerServices | Where-Object { $null -ne $_ -and $null -ne $_.id })
+}
+
+function Get-NifiChildProcessGroups {
+    param(
+        [object]$Context,
+        [string]$ParentGroupId,
+        [string]$GroupName
+    )
+
+    # 只查 parent 的直接子群組，避免以同名 nested group 誤刪不同範圍的流程。
+    $flowEntity = Get-NifiProcessGroupFlow -Context $Context -GroupId $ParentGroupId
+    return @($flowEntity.processGroupFlow.flow.processGroups | Where-Object {
+            $null -ne $_ -and $null -ne $_.component -and $_.component.name -eq $GroupName
+        })
+}
+
 function Invoke-ProcessorOnce {
     param(
         [object]$Context,
@@ -181,6 +216,26 @@ function Stop-Processor {
         state = "STOPPED"
     }
     Invoke-NifiJson -Context $Context -Method "PUT" -Path "/processors/$ProcessorId/run-status" -Body $body | Out-Null
+}
+
+function Wait-ProcessorStopped {
+    param(
+        [object]$Context,
+        [string]$ProcessorId,
+        [int]$TimeoutSeconds = 60
+    )
+
+    # 停止只會阻止新的排程，等待狀態確認可避免刪除仍在執行中的元件。
+    $deadline = [DateTime]::UtcNow.AddSeconds($TimeoutSeconds)
+    while ([DateTime]::UtcNow -lt $deadline) {
+        $entity = Get-ProcessorEntity -Context $Context -ProcessorId $ProcessorId
+        if ($entity.component.state -in @("STOPPED", "DISABLED")) {
+            return
+        }
+        Start-Sleep -Seconds 1
+    }
+
+    throw "等待 Processor $ProcessorId 停止逾時。"
 }
 
 function Set-ProcessorProperties {
@@ -565,29 +620,82 @@ function Drop-QueueFlowFiles {
     throw "等待 Queue 清除逾時。"
 }
 
+function Remove-NifiProcessGroupIfExists {
+    param(
+        [object]$Context,
+        [string]$ParentGroupId,
+        [string]$GroupName
+    )
+
+    # 以名稱查找是因為建立 request 只會產生新 ID，不會自動更新同名群組。
+    $matches = @(Get-NifiChildProcessGroups -Context $Context -ParentGroupId $ParentGroupId -GroupName $GroupName)
+    if ($matches.Count -eq 0) {
+        Write-Host "找不到既有 Process Group：$GroupName"
+        return
+    }
+    if ($matches.Count -gt 1) {
+        $groupIds = @($matches | ForEach-Object { $_.id }) -join ", "
+        throw "找到多個同名 Process Group '$GroupName'：$groupIds；請先手動清理後再使用 -ReplaceExisting。"
+    }
+
+    $existingGroupId = $matches[0].id
+    if ([string]::IsNullOrWhiteSpace($existingGroupId)) {
+        throw "同名 Process Group '$GroupName' 沒有可用的 ID。"
+    }
+
+    Write-Host "已找到既有 Process Group：$GroupName ($existingGroupId)，開始替換。"
+    Remove-NifiProcessGroup -Context $Context -GroupId $existingGroupId
+}
+
 function Remove-NifiProcessGroup {
     param(
         [object]$Context,
         [string]$GroupId
     )
 
-    # 先停止元件、清空佇列並停用 Controller Service，才能安全刪除整個 Process Group。
+    # 先讀取群組內的所有元件，才能替換不是由本次腳本建立的既有群組。
+    $flowEntity = Get-NifiProcessGroupFlow -Context $Context -GroupId $GroupId
+    $flow = $flowEntity.processGroupFlow.flow
+    $processorIds = [System.Collections.Generic.HashSet[string]]::new()
+    foreach ($processor in @($flow.processors)) {
+        if ($null -ne $processor -and -not [string]::IsNullOrWhiteSpace($processor.id)) {
+            $processorIds.Add($processor.id) | Out-Null
+        }
+    }
     foreach ($processorId in $Context.CreatedProcessorIds) {
-        Stop-Processor -Context $Context -ProcessorId $processorId
+        $processorIds.Add($processorId) | Out-Null
     }
 
-    $flow = Invoke-NifiJson -Context $Context -Method "GET" `
-        -Path "/flow/process-groups/$GroupId"
-    foreach ($connection in @($flow.processGroupFlow.flow.connections)) {
+    # 停止元件並等待狀態落定，避免刪除仍在執行中的 Processor。
+    foreach ($processorId in $processorIds) {
+        Stop-Processor -Context $Context -ProcessorId $processorId
+        Wait-ProcessorStopped -Context $Context -ProcessorId $processorId
+    }
+
+    # 停止期間可能仍有最後一批 FlowFile 完成，重新讀取 flow 才能清到最新 queue 狀態。
+    $flowEntity = Get-NifiProcessGroupFlow -Context $Context -GroupId $GroupId
+    $flow = $flowEntity.processGroupFlow.flow
+    foreach ($connection in @($flow.connections)) {
         $queued = $connection.status.aggregateSnapshot.flowFilesQueued
         if ($queued -gt 0) {
             Drop-QueueFlowFiles -Context $Context -ConnectionId $connection.component.id
         }
     }
 
+    $controllerServiceIds = [System.Collections.Generic.HashSet[string]]::new()
+    foreach ($service in @(Get-NifiProcessGroupControllerServices -Context $Context -GroupId $GroupId)) {
+        $controllerServiceIds.Add($service.id) | Out-Null
+    }
     foreach ($controllerServiceId in $Context.CreatedControllerServiceIds) {
-        Set-ControllerServiceState -Context $Context -ControllerServiceId $controllerServiceId -State "DISABLED"
-        Wait-ControllerServiceState -Context $Context -ControllerServiceId $controllerServiceId -ExpectedState "DISABLED"
+        $controllerServiceIds.Add($controllerServiceId) | Out-Null
+    }
+
+    foreach ($controllerServiceId in $controllerServiceIds) {
+        $service = Get-ControllerServiceEntity -Context $Context -ControllerServiceId $controllerServiceId
+        if ($service.component.state -ne "DISABLED") {
+            Set-ControllerServiceState -Context $Context -ControllerServiceId $controllerServiceId -State "DISABLED"
+            Wait-ControllerServiceState -Context $Context -ControllerServiceId $controllerServiceId -ExpectedState "DISABLED"
+        }
     }
 
     $group = Invoke-NifiJson -Context $Context -Method "GET" -Path "/process-groups/$GroupId"

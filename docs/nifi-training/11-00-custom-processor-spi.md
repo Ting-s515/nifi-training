@@ -605,6 +605,17 @@ Process Group 與元件仍會保留給你在 UI 觀察。若要刪除本次建�
   -GroupName training-lab-11-json-validation-rerun
 ```
 
+若 root 下已存在 `training-lab-11-json-validation`，可以用同名替換模式重新初始化：
+
+```powershell
+.\examples\nifi-custom-processor\scripts\setup-flow.ps1 `
+  -ReplaceExisting
+```
+
+這個參數會先依名稱取得既有群組 ID，停止 Processor、清空 Queue、停用 Controller Service，
+再刪除舊群組並建立新的同名群組。它只刪除同名課程群組，不會移除已安裝的 NAR；若找到多個
+同名群組，腳本會停止並列出 ID，要求先人工確認。
+
 NAR 安裝完成後，使用第二支腳本建立政策 Process Group：
 
 ```powershell
@@ -733,6 +744,7 @@ Flow 設定或 Java policy 造成。
 - [ ] 17 個 `nifi-mock` 測試全部通過。
 - [ ] JAR 內有兩個 Processor class 與兩行 ServiceLoader descriptor。
 - [ ] NAR 內有 2.1.0 Processor JAR。
+- [ ] 需要重建課程流程時，能說明 `-ReplaceExisting` 會依 ID 替換同名 Process Group。
 - [ ] `GET /flow/processor-types` 找得到 `ValidateOrderJsonProcessor` 與 `OrderPolicyProcessor`。
 - [ ] `GET /flow/controller-service-types` 找得到 `JsonTreeReader`。
 - [ ] Controller Service 使用明確 schema 並成功啟用。

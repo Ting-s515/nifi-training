@@ -42,7 +42,7 @@
 | 寫資料庫 | `PutDatabaseRecord` | 將 records 寫入 DB |
 | 讀檔 | `GetFile` / `ListFile` + `FetchFile` | 讀取檔案來源 |
 | 寫檔 | `PutFile` | 將 FlowFile content 寫出檔案 |
-| 自訂處理 | `ContentDigestProcessor` | 以 Java SPI 計算 content 摘要並寫入 attribute |
+| 自訂處理 | `ValidateOrderJsonProcessor` | 以 Java SPI 驗證 JSON 訂單欄位並寫入 validation attributes |
 
 ## 常用 Controller Service
 

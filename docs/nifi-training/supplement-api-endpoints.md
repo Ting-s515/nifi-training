@@ -73,6 +73,8 @@ curl.exe -k -H "Authorization: Bearer $token" `
 | 建立 Connection | `POST /process-groups/{id}/connections` |
 | 查 Connection | `GET /connections/{id}` |
 | 建立 Controller Service | `POST /process-groups/{id}/controller-services` |
+| 查 Controller Service type | `GET /flow/controller-service-types` |
+| 更新 Controller Service | `PUT /controller-services/{id}` |
 | 啟停 Controller Service | `PUT /controller-services/{id}/run-status` |
 | 查 Queue FlowFile | `POST /flowfile-queues/{id}/listing-requests` |
 | 清空 Queue | `POST /flowfile-queues/{id}/drop-requests` |
@@ -88,12 +90,12 @@ Lab 11 的範例位於 `examples/nifi-custom-processor/`，以 REST API 完成 N
 ### 1. 上傳並等待 NAR 安裝
 
 ```powershell
-$narPath = ".\examples\nifi-custom-processor\nifi-training-custom-processor-nar\target\nifi-training-custom-processor-nar-1.0.0.nar"
+$narPath = ".\examples\nifi-custom-processor\nifi-training-custom-processor-nar\target\nifi-training-custom-processor-nar-2.0.0.nar"
 
 curl.exe -k -sS -X POST `
   -H "Authorization: Bearer $token" `
   -H "Content-Type: application/octet-stream" `
-  -H "filename: nifi-training-custom-processor-nar-1.0.0.nar" `
+  -H "filename: nifi-training-custom-processor-nar-2.0.0.nar" `
   --data-binary "@$narPath" `
   "https://localhost:8443/nifi-api/controller/nar-manager/nars/content"
 ```
@@ -115,7 +117,7 @@ GET /flow/processor-types
 篩選：
 
 ```text
-com.example.nifi.training.ContentDigestProcessor
+com.example.nifi.training.ValidateOrderJsonProcessor
 ```
 
 同時讀取 response 的 `bundle.group`、`bundle.artifact` 與 `bundle.version`，再帶入建立 Processor 的 request。這能讓程式使用 NiFi 目前實際註冊的 bundle metadata，而不是依賴 UI 顯示文字或自行猜版本。
@@ -138,12 +140,12 @@ Processor body 的核心欄位：
     "version": 0
   },
   "component": {
-    "name": "Content Digest",
-    "type": "com.example.nifi.training.ContentDigestProcessor",
+    "name": "Validate order JSON",
+    "type": "com.example.nifi.training.ValidateOrderJsonProcessor",
     "bundle": {
       "group": "com.example.nifi.training",
       "artifact": "nifi-training-custom-processor-nar",
-      "version": "1.0.0"
+      "version": "2.0.0"
     },
     "position": {
       "x": 400.0,
@@ -181,11 +183,15 @@ GET  /flowfile-queues/{connection-id}/listing-requests/{request-id}
 GET  /flowfile-queues/{connection-id}/flowfiles/{flowfile-uuid}
 ```
 
-listing response 會提供 FlowFile UUID；FlowFile entity 才包含 attributes。Lab 11 會從該 entity 驗證 `content.digest`，避免把「queue 有資料」誤認成「custom Processor 已經寫入 attribute」。
+listing response 會提供 FlowFile UUID；FlowFile entity 才包含 attributes，content 則由
+`GET /flowfile-queues/{id}/flowfiles/{uuid}/content` 取得。Lab 11 會從 entity 驗證
+`training.validation.status` 與 `training.validation.reason`，避免把「queue 有資料」
+誤認成「custom Processor 已經完成商業驗證」。
 
 ### 5. Revision 與穩定介面邊界
 
 - Java Processor 使用 `nifi-api` 的 `AbstractProcessor`、`ProcessSession`、`ProcessContext` 與 `Relationship`。
+- JSON 讀取使用 `RecordReaderFactory` contract 與 `JsonTreeReader` Controller Service。
 - 單元測試使用 `nifi-mock` 的 `TestRunner` 與 `MockFlowFile`。
 - 部署使用 NAR 與 NAR Manager endpoint。
 - Flow 操作使用目前 NiFi 版本的 REST API 與本機 Swagger。

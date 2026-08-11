@@ -23,7 +23,7 @@
     <parent>
         <groupId>com.example.nifi.training</groupId>
         <artifactId>nifi-training-custom-processor-bundle</artifactId>
-        <version>1.0.0</version>
+        <version>2.0.0</version>
         <relativePath>../pom.xml</relativePath>
     </parent>
 
@@ -38,7 +38,7 @@
         </dependency>
         <dependency>
             <groupId>org.apache.nifi</groupId>
-            <artifactId>nifi-standard-services-api-nar</artifactId>
+            <artifactId>nifi-record-serialization-services-nar</artifactId>
             <version>${nifi.version}</version>
             <type>nar</type>
         </dependency>

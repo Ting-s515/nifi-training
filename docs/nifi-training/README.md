@@ -85,7 +85,7 @@ docker compose ps
 
 ### Lab 11 的額外初始化
 
-Lab 11 的 `ContentDigestProcessor` 不在 `nifi-sample` 基礎映像內。NiFi runtime 啟動後，
+Lab 11 的 `ValidateOrderJsonProcessor` 不在 `nifi-sample` 基礎映像內。NiFi runtime 啟動後，
 還要先將課程範例建置成 NAR，再上傳並安裝到 NiFi，Processor type 才會出現在 runtime
 中。
 
@@ -101,9 +101,23 @@ NiFi runtime。完整的 JAR、NAR、ServiceLoader 與 classloader 關係，請�
 .\examples\nifi-custom-processor\scripts\setup-flow.ps1
 ```
 
-第二個腳本會讀取 `.env`、上傳 NAR、等待安裝完成、確認 Processor type，並建立測試
-Process Group。完整的 API 與驗證說明請接著閱讀
+第二個腳本會讀取 `.env`、上傳 NAR、等待安裝完成、確認 Processor type，建立
+`JsonTreeReader` Controller Service、三個 JSON 測試來源、自訂 Processor 與
+success/failure `LogAttribute`，最後以 Queue 與 FlowFile API 驗證三種案例。完整的
+API 與驗證說明請接著閱讀
 [Lab 11：使用 NiFi SPI 開發自訂 Processor](11-00-custom-processor-spi.md)。
+
+NAR 已安裝後，可以略過上傳並指定新的 Process Group 名稱：
+
+```powershell
+.\examples\nifi-custom-processor\scripts\setup-flow.ps1 `
+  -SkipNarUpload `
+  -GroupName training-lab-11-json-validation-rerun
+```
+
+腳本預設保留 Process Group、但會清掉已驗證的測試 queue；若要刪除本次建立的整個
+group，使用 `-Cleanup`。課程中看到的 NAR 版本為 `2.0.0`，若自行修改 Processor，
+請同步更新 Maven version、build script 預期檔名與部署腳本驗證的 bundle version。
 
 注意：課程中的 `docker compose ...` 指令都要在專案根目錄執行，也就是目前包含 `docker-compose.yaml` 的工作目錄。若在其他目錄執行，可能會出現 `no such service: nifi` 或找不到 compose 專案。
 

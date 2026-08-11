@@ -1,0 +1,80 @@
+<!doctype html>
+<html lang="zh-Hant">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta
+      name="description"
+      content="{{SITE_DESCRIPTION}}"
+    />
+    <title>{{SITE_TITLE}}</title>
+    <link rel="stylesheet" href="./style.css" />
+  </head>
+  <body>
+    <div class="document-shell">
+      <aside class="document-sidebar" aria-label="文件目錄">
+        <header class="sidebar-header">
+          <p class="sidebar-eyebrow">{{SITE_NAME}}</p>
+          <h1>{{SITE_TITLE}}</h1>
+          <p>共 {{DOCUMENT_COUNT}} 份文件</p>
+          <label class="document-search-label" for="document-search">搜尋課程文件</label>
+          <input
+            class="document-search"
+            id="document-search"
+            type="search"
+            placeholder="搜尋標題或檔名"
+            autocomplete="off"
+          />
+        </header>
+        <nav aria-label="文件目錄">
+<!-- DOCUMENT_NAVIGATION -->
+        </nav>
+      </aside>
+      <main class="document-main" id="main-content">
+        <div class="document-toolbar" aria-label="文件切換工具列">
+          <span class="document-current-file" id="document-current-file"></span>
+          <div class="document-toolbar-actions">
+            <button id="document-previous" type="button" aria-label="上一份文件" title="上一份文件">
+              ←
+            </button>
+            <button id="document-next" type="button" aria-label="下一份文件" title="下一份文件">
+              →
+            </button>
+          </div>
+        </div>
+<!-- DOCUMENT_CONTENT -->
+      </main>
+    </div>
+    <dialog
+      class="diagram-dialog"
+      id="diagram-dialog"
+      aria-labelledby="diagram-dialog-title"
+    >
+      <section class="diagram-dialog-shell">
+        <header class="diagram-dialog-header">
+          <h2 id="diagram-dialog-title">Mermaid 圖表放大檢視</h2>
+          <div class="diagram-dialog-controls" aria-label="圖表縮放工具列">
+            <button type="button" data-diagram-action="zoom-out" aria-label="縮小圖表">
+              −
+            </button>
+            <output id="diagram-zoom-level" aria-live="polite">100%</output>
+            <button type="button" data-diagram-action="zoom-in" aria-label="放大圖表">
+              ＋
+            </button>
+            <button type="button" data-diagram-action="reset">重設</button>
+            <button type="button" data-diagram-action="close">關閉</button>
+          </div>
+        </header>
+        <div
+          class="diagram-viewport"
+          id="diagram-viewport"
+          aria-label="可拖曳的 Mermaid 圖表"
+        >
+          <div class="diagram-canvas" id="diagram-canvas"></div>
+        </div>
+        <p class="diagram-dialog-help">使用滾輪縮放，按住圖表拖曳移動，按 Esc 關閉。</p>
+      </section>
+    </dialog>
+    <script type="module" src="./app.mjs"></script>
+  </body>
+</html>

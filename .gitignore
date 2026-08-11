@@ -35,6 +35,9 @@ work/
 docker-compose.override.yml
 .docker/
 
+# Static training site dependencies
+docs/nifi-training/node_modules/
+
 # Editors and operating systems
 .idea/
 .vscode/

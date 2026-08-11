@@ -4,8 +4,11 @@
 
 本 repository 提供 Apache NiFi 2.9.0 的本機 Docker 環境與實作課程。
 
-- `docs/nifi-training/`：Lab、速查表與補充說明；`README.md` 是課程入口。
-- `docs/nifi-training/mdx/`：Markdown 閱讀器範本與產生器；輸出為同目錄的 `index.html`。
+- `docs/nifi-training/`：Lab、速查表、補充說明與純靜態文件網站；`README.md` 是課程入口。
+- `docs/nifi-training/src/`：閱讀器 HTML、CSS、ES module 與可獨立測試的 helper 來源。
+- `docs/nifi-training/script/`：Markdown build pipeline 與本機靜態伺服器。
+- `docs/nifi-training/test/`：文件清單、連結、複製與 Mermaid dialog 契約測試。
+- `docs/nifi-training/mdx/build-training-html.mjs`：保留既有直接執行路徑的相容 wrapper。
 - `docs/nifi-description.md`：NiFi 概念與環境說明。
 - 根目錄的 `Dockerfile`、`docker-compose.yaml`、`requirements.txt`、JDBC JAR
   與 `.env.sample`：建置及執行環境設定；`zip/` 保存驅動程式壓縮檔。
@@ -25,14 +28,17 @@ docker compose ps
 使用 `docker compose logs -f nifi` 追蹤 NiFi；完成後用 `docker compose down` 停止服務。
 `docker compose down -v` 會刪除練習用 volumes，僅在確認資料可重建時使用。
 
-修改課程 Markdown 或閱讀器範本後，執行：
+修改課程 Markdown 或閱讀器來源後，執行：
 
 ```powershell
-node docs/nifi-training/mdx/build-training-html.mjs
+npm --prefix ./docs/nifi-training install
+npm --prefix ./docs/nifi-training test
+npm --prefix ./docs/nifi-training run build
 ```
 
-目前沒有正式測試框架或 coverage 門檻；至少應執行上述產生器，並在瀏覽器檢查
-`docs/nifi-training/index.html` 的目錄、搜尋、前後頁與課程內容。
+網站測試使用 Node.js 內建 `node:test`，目前沒有 coverage 門檻；仍應在瀏覽器檢查
+`docs/nifi-training/index.html` 的目錄、文件切換、heading deep link、程式碼複製、
+Mermaid 圖表與課程內容。
 
 ## Code Review
 

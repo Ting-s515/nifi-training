@@ -27,7 +27,7 @@ if ($LASTEXITCODE -ne 0) {
     throw "Maven verify 失敗，請檢查上方輸出。"
 }
 
-$narPath = Join-Path $projectDirectory "nifi-training-custom-processor-nar\target\nifi-training-custom-processor-nar-2.0.0.nar"
+$narPath = Join-Path $projectDirectory "nifi-training-custom-processor-nar\target\nifi-training-custom-processor-nar-2.1.0.nar"
 if (-not (Test-Path -LiteralPath $narPath)) {
     throw "找不到預期的 NAR 輸出：$narPath"
 }

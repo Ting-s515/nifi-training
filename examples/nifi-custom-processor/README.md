@@ -1,31 +1,35 @@
 # NiFi Custom Processor SPI 範例
 
-這個範例使用 NiFi 2.9.0 的公開 Java API，建立一個可部署的 JSON 訂單驗證
-Processor Bundle：
+這個範例使用 NiFi 2.9.0 的公開 Java API，建立一個可部署、包含兩個客製化
+Processor 的 Bundle：
 
 ```text
-GenerateFlowFile (3 個案例)
-        │
-        ▼
-ValidateOrderJsonProcessor
-        │
-        ├─ success → LogAttribute
-        └─ failure → LogAttribute
+同一個 JAR/NAR
+        ├─ ValidateOrderJsonProcessor
+        │      ├─ success → LogAttribute
+        │      └─ failure → LogAttribute
+        └─ OrderPolicyProcessor
+               ├─ approved → LogAttribute
+               ├─ manual-review → LogAttribute
+               ├─ rejected → LogAttribute
+               └─ failure → LogAttribute
 ```
 
 自訂 Processor 透過 `RecordReaderFactory` 使用 `JsonTreeReader` 將 JSON 讀成 Record，
-再驗證 `order_id`、`customer`、`amount` 三個必要欄位。成功與失敗都保留原始 content，
-並寫入 `training.validation.status` 與 `training.validation.reason` attributes。這個
-設計比直接在 Processor 內呼叫 JSON library 更接近 NiFi 的公開 extension API，也能把
-Reader 替換成其他格式的 Controller Service。
+`ValidateOrderJsonProcessor` 負責驗證 `order_id`、`customer`、`amount`，
+`OrderPolicyProcessor` 則依 `customer_tier` 與 `amount` 執行公司政策決策。兩者都保留
+原始 content，並寫入固定 attributes。這個設計比直接在 Processor 內呼叫 JSON library
+更接近 NiFi 的公開 extension API，也能把 Reader 替換成其他格式的 Controller Service。
 
 ## 目錄
 
 - `nifi-training-custom-processor-processors/`：Processor Java 原始碼、ServiceLoader
-  descriptor 與 `nifi-mock` 測試。
+  descriptor 與兩個 Processor 的 `nifi-mock` 測試。
 - `nifi-training-custom-processor-nar/`：將 Processor JAR 打包成 NiFi 可載入的 NAR。
+- `scripts/nifi-flow-helper.ps1`：共用 NiFi REST、Queue、NAR 與 cleanup 操作。
 - `scripts/setup-flow.ps1`：以 NiFi REST API 上傳 NAR、建立 `JsonTreeReader`、建立
-  測試 Process Group 並驗證三種資料案例。
+  驗證 Process Group 並驗證三種資料案例。
+- `scripts/setup-policy-flow.ps1`：建立政策 Process Group 並驗證五種政策案例。
 - `build.ps1`：使用 Docker Maven + JDK 21 建置，避免依賴主機 Maven 版本。
 
 ## 建置
@@ -45,8 +49,8 @@ Reader 替換成其他格式的 Controller Service。
 成功後的產物：
 
 ```text
-examples/nifi-custom-processor/nifi-training-custom-processor-processors/target/nifi-training-custom-processor-processors-2.0.0.jar
-examples/nifi-custom-processor/nifi-training-custom-processor-nar/target/nifi-training-custom-processor-nar-2.0.0.nar
+examples/nifi-custom-processor/nifi-training-custom-processor-processors/target/nifi-training-custom-processor-processors-2.1.0.jar
+examples/nifi-custom-processor/nifi-training-custom-processor-nar/target/nifi-training-custom-processor-nar-2.1.0.nar
 ```
 
 這個範例要求 Java 21 的編譯目標，實際 Maven 執行放在 Docker 的 Maven + JDK 21
@@ -69,18 +73,18 @@ docker compose up -d
 腳本會依序：
 
 1. 取得 `POST /access/token` 的 Bearer token。
-2. 以 `POST /controller/nar-manager/nars/content` 上傳 2.0.0 NAR。
+2. 以 `POST /controller/nar-manager/nars/content` 上傳 2.1.0 NAR。
 3. 輪詢 NAR 安裝狀態，並用 `GET /flow/processor-types` 驗證 Processor 已註冊。
 4. 用 `GET /flow/controller-service-types` 找到 `JsonTreeReader`，建立並啟用
    `RecordReaderFactory` Controller Service。
 5. 設定明確的 Avro schema，讓缺少欄位的 JSON 先轉成 nullable Record，再交給自訂
    Processor 執行商業規則驗證。
-6. 建立三個 `GenerateFlowFile` 測試來源、自訂 Processor 與兩個 `LogAttribute`。
+6. 建立三個 `GenerateFlowFile` 測試來源、驗證 Processor 與兩個 `LogAttribute`。
 7. 以 REST API 建立三條輸入連線，以及 `success`、`failure` 兩條分流連線。
 8. 逐筆使用 `RUN_ONCE` 執行，從 Queue 與 FlowFile API 驗證 status、reason 與原始
    content。
 
-三個案例預期結果：
+驗證流程的三個案例預期結果：
 
 | 案例 | 預期關係 | `training.validation.status` | `training.validation.reason` |
 | --- | --- | --- | --- |
@@ -105,13 +109,42 @@ queue 與 bulletin。若 NAR 已經安裝，可略過上傳並使用新的 group
   -Cleanup
 ```
 
+NAR 已安裝後，建立獨立的政策 Process Group：
+
+```powershell
+.\examples\nifi-custom-processor\scripts\setup-policy-flow.ps1 `
+  -SkipNarUpload `
+  -GroupName training-lab-11-order-policy
+```
+
+政策流程會建立五個測試來源與四個輸出 `LogAttribute`，驗證：
+
+| 案例 | Relationship | `training.policy.decision` | `training.policy.reason` |
+| --- | --- | --- | --- |
+| standard、amount `800` | `approved` | `approved` | `accepted` |
+| vip、amount `4500` | `approved` | `approved` | `accepted` |
+| standard、amount `1500` | `manual-review` | `manual_review` | `tier.amount.review` |
+| vip、amount `6000` | `rejected` | `rejected` | `amount.limit` |
+| 缺少 `customer_tier` | `failure` | `error` | `customer_tier.required` |
+
+`OrderPolicyProcessor` 的預設 properties 是：
+
+| Property | 預設值 |
+| --- | --- |
+| `Manual Review Threshold` | `1000` |
+| `Reject Threshold` | `5000` |
+| `VIP Customer Tier` | `vip` |
+
+兩支 setup script 都支援 `-SkipNarUpload`、`-GroupName` 與 `-Cleanup`。預設只清除驗證
+過程讀回的 queue；指定 `-Cleanup` 才會刪除該次建立的 Process Group。
+
 ## Processor API 對照
 
 | 課程概念 | 範例位置或責任 |
 | --- | --- |
-| `AbstractProcessor` | `ValidateOrderJsonProcessor` 的基底類別 |
-| `PropertyDescriptor` | `Record Reader`，指定 `RecordReaderFactory` Controller Service |
-| `Relationship` | `REL_SUCCESS`、`REL_FAILURE` |
+| `AbstractProcessor` | 兩個客製化 Processor 的基底類別 |
+| `PropertyDescriptor` | Reader 與政策門檻的 NiFi 設定 contract |
+| `Relationship` | 驗證的 `success/failure` 與政策的四條輸出 |
 | `ProcessContext` | 取得 `RecordReaderFactory` |
 | `ProcessSession` | 讀取 FlowFile、保留 content、寫入 attributes、轉送 FlowFile |
 | `RecordReaderFactory` | NiFi 公開的 Record 讀取契約 |
@@ -135,6 +168,18 @@ UI 內部 class、瀏覽器操作或 Python script，方便將 Processor 邏輯�
   code。
 - 多個商業錯誤會依 `order_id`、`customer`、`amount` 順序以分號合併，方便下游記錄與
   測試比對。
+
+`OrderPolicyProcessor` 將公司政策封裝成可配置的 Processor contract：
+
+- `amount > 5000`：`rejected`，reason `amount.limit`。
+- `amount > 1000` 且 `customer_tier` 不是 `vip`：`manual-review`，reason
+  `tier.amount.review`。
+- 其他合法資料：`approved`，reason `accepted`。
+- 欄位缺少、型別錯誤、JSON 解析失敗或多筆 Record：`failure`。
+
+這兩個 class 放在同一個 processors JAR，再由同一個 NAR 部署；學員不需要為每個
+Processor 強制建立一個獨立 JAR。NiFi 仍會依 ServiceLoader descriptor 將兩個 class
+註冊成兩個可建立的 Processor type。
 
 完整的課程背景、SPI、JAR、NAR 與 REST API 操作請閱讀：
 

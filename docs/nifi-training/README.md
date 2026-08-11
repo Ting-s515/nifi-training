@@ -19,7 +19,7 @@
 - 每個 Lab 結尾要回顧整條 flow 在做什麼，避免只照步驟完成卻不知道流程意義。
 - 每個 Step 都要用「新手是否能從上一個 Step 的狀態直接照做」來檢查；若前一步留下的設定會影響下一步，必須明確寫出要保留、修改或刪除哪些設定。
 - NiFi UI 若提供多個獨立 property，就依照 property 語意分開填，不要把外部工具或 SQL 慣用的完整字串硬塞進單一欄位。例如 MSSQL 在 `PutDatabaseRecord` 要分開填 `Database Name`、`Schema Name`、`Table Name`，不要把 `dbo.table_name` 全部填到 `Table Name`。
-- Lab 11 會先建立 SPI 的主程式、契約、提供者、發現與部署模型，再實作 custom Processor；需要擴充 NiFi SPI 時，優先使用 `nifi-api`、`nifi-mock`、ServiceLoader 與 NAR 公開契約，REST 操作以目前版本 Swagger 驗證，避免依賴 UI 內部實作。
+- Lab 11 會先建立 SPI 的主程式、契約、提供者、發現與部署模型，再實作兩個 custom Processor；需要擴充 NiFi SPI 時，優先使用 `nifi-api`、`nifi-mock`、ServiceLoader 與 NAR 公開契約，REST 操作以目前版本 Swagger 驗證，避免依賴 UI 內部實作。
 - 補充文檔只用來釐清容易誤解的概念，不取代 Lab 的實作主線。
 
 課程檔名規則：
@@ -85,9 +85,9 @@ docker compose ps
 
 ### Lab 11 的額外初始化
 
-Lab 11 的 `ValidateOrderJsonProcessor` 不在 `nifi-sample` 基礎映像內。NiFi runtime 啟動後，
-還要先將課程範例建置成 NAR，再上傳並安裝到 NiFi，Processor type 才會出現在 runtime
-中。
+Lab 11 的 `ValidateOrderJsonProcessor` 與 `OrderPolicyProcessor` 不在 `nifi-sample` 基礎
+映像內。NiFi runtime 啟動後，還要先將課程範例建置成 NAR，再上傳並安裝到 NiFi，兩個
+Processor type 才會出現在 runtime 中。
 
 這裡先記住兩個產物：`JAR`（Java Archive）保存編譯後的 Java class 與資源；`NAR`
 （NiFi Archive）則是 NiFi extension 的部署封裝，會帶著 Processor JAR 與相依關係進入
@@ -99,12 +99,14 @@ NiFi runtime。完整的 JAR、NAR、ServiceLoader 與 classloader 關係，請�
 ```powershell
 .\examples\nifi-custom-processor\build.ps1
 .\examples\nifi-custom-processor\scripts\setup-flow.ps1
+.\examples\nifi-custom-processor\scripts\setup-policy-flow.ps1 -SkipNarUpload
 ```
 
-第二個腳本會讀取 `.env`、上傳 NAR、等待安裝完成、確認 Processor type，建立
+第一個腳本會讀取 `.env`、上傳 NAR、等待安裝完成、確認驗證 Processor type，建立
 `JsonTreeReader` Controller Service、三個 JSON 測試來源、自訂 Processor 與
-success/failure `LogAttribute`，最後以 Queue 與 FlowFile API 驗證三種案例。完整的
-API 與驗證說明請接著閱讀
+success/failure `LogAttribute`，最後以 Queue 與 FlowFile API 驗證三種案例。第二個腳本
+沿用已安裝的 NAR，建立獨立的政策 Process Group，驗證 `approved`、`manual-review`、
+`rejected`、`failure` 四條 relationship。完整的 API 與驗證說明請接著閱讀
 [Lab 11：使用 NiFi SPI 開發自訂 Processor](11-00-custom-processor-spi.md)。
 
 NAR 已安裝後，可以略過上傳並指定新的 Process Group 名稱：
@@ -113,10 +115,14 @@ NAR 已安裝後，可以略過上傳並指定新的 Process Group 名稱：
 .\examples\nifi-custom-processor\scripts\setup-flow.ps1 `
   -SkipNarUpload `
   -GroupName training-lab-11-json-validation-rerun
+
+.\examples\nifi-custom-processor\scripts\setup-policy-flow.ps1 `
+  -SkipNarUpload `
+  -GroupName training-lab-11-order-policy-rerun
 ```
 
 腳本預設保留 Process Group、但會清掉已驗證的測試 queue；若要刪除本次建立的整個
-group，使用 `-Cleanup`。課程中看到的 NAR 版本為 `2.0.0`，若自行修改 Processor，
+group，使用 `-Cleanup`。課程中看到的 NAR 版本為 `2.1.0`，若自行修改 Processor，
 請同步更新 Maven version、build script 預期檔名與部署腳本驗證的 bundle version。
 
 注意：課程中的 `docker compose ...` 指令都要在專案根目錄執行，也就是目前包含 `docker-compose.yaml` 的工作目錄。若在其他目錄執行，可能會出現 `no such service: nifi` 或找不到 compose 專案。
@@ -190,7 +196,7 @@ node docs/nifi-training/mdx/build-training-html.mjs
 10. [Lab 08：Processor 排程與執行控制](08-scheduling.md)
 11. [Lab 09：NiFi Cluster 入門與多節點執行觀念](09-clustering.md)
 12. [Lab 10：Query、Formatter 與 Expression Language 實戰](10-query-format-expression-language.md)
-13. [Lab 11：使用 NiFi SPI 開發自訂 Processor](11-00-custom-processor-spi.md)
+13. [Lab 11：當內建 Processor 不足時，使用 NiFi SPI 開發客製化 Processor](11-00-custom-processor-spi.md)
 14. [速查表：常用 Processor 與排錯關鍵字](99-cheatsheet.md)
 
 ## 補充閱讀

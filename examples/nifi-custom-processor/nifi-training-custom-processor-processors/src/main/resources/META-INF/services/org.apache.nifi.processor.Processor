@@ -1,1 +1,2 @@
 com.example.nifi.training.ValidateOrderJsonProcessor
+com.example.nifi.training.OrderPolicyProcessor

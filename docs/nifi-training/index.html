@@ -116,7 +116,7 @@
             </li>
             <li>
               <a class="document-link" href="#doc-11-00-custom-processor-spi-3fd4f126">
-                <span class="document-title">Lab 11：使用 NiFi SPI 開發 JSON 訂單驗證 Processor</span>
+                <span class="document-title">Lab 11：當內建 Processor 不足時，使用 NiFi SPI 開發客製化 Processor</span>
                 <span class="document-file">11-00-custom-processor-spi.md</span>
               </a>
             </li>
@@ -192,7 +192,7 @@
 <li>每個 Lab 結尾要回顧整條 flow 在做什麼，避免只照步驟完成卻不知道流程意義。</li>
 <li>每個 Step 都要用「新手是否能從上一個 Step 的狀態直接照做」來檢查；若前一步留下的設定會影響下一步，必須明確寫出要保留、修改或刪除哪些設定。</li>
 <li>NiFi UI 若提供多個獨立 property，就依照 property 語意分開填，不要把外部工具或 SQL 慣用的完整字串硬塞進單一欄位。例如 MSSQL 在 <code>PutDatabaseRecord</code> 要分開填 <code>Database Name</code>、<code>Schema Name</code>、<code>Table Name</code>，不要把 <code>dbo.table_name</code> 全部填到 <code>Table Name</code>。</li>
-<li>Lab 11 會先建立 SPI 的主程式、契約、提供者、發現與部署模型，再實作 custom Processor；需要擴充 NiFi SPI 時，優先使用 <code>nifi-api</code>、<code>nifi-mock</code>、ServiceLoader 與 NAR 公開契約，REST 操作以目前版本 Swagger 驗證，避免依賴 UI 內部實作。</li>
+<li>Lab 11 會先建立 SPI 的主程式、契約、提供者、發現與部署模型，再實作兩個 custom Processor；需要擴充 NiFi SPI 時，優先使用 <code>nifi-api</code>、<code>nifi-mock</code>、ServiceLoader 與 NAR 公開契約，REST 操作以目前版本 Swagger 驗證，避免依賴 UI 內部實作。</li>
 <li>補充文檔只用來釐清容易誤解的概念，不取代 Lab 的實作主線。</li>
 </ul>
 <p>課程檔名規則：</p>
@@ -242,9 +242,9 @@ docker compose ps
 </ul>
 <p>登入帳密請看本機 <code>.env</code>，不要把實際密碼寫進文件或 commit。</p>
 <h3 id="doc-readme-b3356305--lab-11-的額外初始化">Lab 11 的額外初始化</h3>
-<p>Lab 11 的 <code>ValidateOrderJsonProcessor</code> 不在 <code>nifi-sample</code> 基礎映像內。NiFi runtime 啟動後，
-還要先將課程範例建置成 NAR，再上傳並安裝到 NiFi，Processor type 才會出現在 runtime
-中。</p>
+<p>Lab 11 的 <code>ValidateOrderJsonProcessor</code> 與 <code>OrderPolicyProcessor</code> 不在 <code>nifi-sample</code> 基礎
+映像內。NiFi runtime 啟動後，還要先將課程範例建置成 NAR，再上傳並安裝到 NiFi，兩個
+Processor type 才會出現在 runtime 中。</p>
 <p>這裡先記住兩個產物：<code>JAR</code>（Java Archive）保存編譯後的 Java class 與資源；<code>NAR</code>
 （NiFi Archive）則是 NiFi extension 的部署封裝，會帶著 Processor JAR 與相依關係進入
 NiFi runtime。完整的 JAR、NAR、ServiceLoader 與 classloader 關係，請先閱讀 Lab 11
@@ -252,19 +252,25 @@ NiFi runtime。完整的 JAR、NAR、ServiceLoader 與 classloader 關係，請�
 <p>請從 repository 根目錄執行：</p>
 <pre><code class="language-powershell">.\examples\nifi-custom-processor\build.ps1
 .\examples\nifi-custom-processor\scripts\setup-flow.ps1
+.\examples\nifi-custom-processor\scripts\setup-policy-flow.ps1 -SkipNarUpload
 </code></pre>
-<p>第二個腳本會讀取 <code>.env</code>、上傳 NAR、等待安裝完成、確認 Processor type，建立
+<p>第一個腳本會讀取 <code>.env</code>、上傳 NAR、等待安裝完成、確認驗證 Processor type，建立
 <code>JsonTreeReader</code> Controller Service、三個 JSON 測試來源、自訂 Processor 與
-success/failure <code>LogAttribute</code>，最後以 Queue 與 FlowFile API 驗證三種案例。完整的
-API 與驗證說明請接著閱讀
+success/failure <code>LogAttribute</code>，最後以 Queue 與 FlowFile API 驗證三種案例。第二個腳本
+沿用已安裝的 NAR，建立獨立的政策 Process Group，驗證 <code>approved</code>、<code>manual-review</code>、
+<code>rejected</code>、<code>failure</code> 四條 relationship。完整的 API 與驗證說明請接著閱讀
 <a href="#doc-11-00-custom-processor-spi-3fd4f126">Lab 11：使用 NiFi SPI 開發自訂 Processor</a>。</p>
 <p>NAR 已安裝後，可以略過上傳並指定新的 Process Group 名稱：</p>
 <pre><code class="language-powershell">.\examples\nifi-custom-processor\scripts\setup-flow.ps1 `
   -SkipNarUpload `
   -GroupName training-lab-11-json-validation-rerun
+
+.\examples\nifi-custom-processor\scripts\setup-policy-flow.ps1 `
+  -SkipNarUpload `
+  -GroupName training-lab-11-order-policy-rerun
 </code></pre>
 <p>腳本預設保留 Process Group、但會清掉已驗證的測試 queue；若要刪除本次建立的整個
-group，使用 <code>-Cleanup</code>。課程中看到的 NAR 版本為 <code>2.0.0</code>，若自行修改 Processor，
+group，使用 <code>-Cleanup</code>。課程中看到的 NAR 版本為 <code>2.1.0</code>，若自行修改 Processor，
 請同步更新 Maven version、build script 預期檔名與部署腳本驗證的 bundle version。</p>
 <p>注意：課程中的 <code>docker compose ...</code> 指令都要在專案根目錄執行，也就是目前包含 <code>docker-compose.yaml</code> 的工作目錄。若在其他目錄執行，可能會出現 <code>no such service: nifi</code> 或找不到 compose 專案。</p>
 <h2 id="doc-readme-b3356305--產生與啟動雙欄式-html-閱讀器">產生與啟動雙欄式 HTML 閱讀器</h2>
@@ -314,7 +320,7 @@ npm.cmd --prefix ./docs/nifi-training run build
 <li><a href="#doc-08-scheduling-57f99b6d">Lab 08：Processor 排程與執行控制</a></li>
 <li><a href="#doc-09-clustering-ce1392d8">Lab 09：NiFi Cluster 入門與多節點執行觀念</a></li>
 <li><a href="#doc-10-query-format-expression-language-d9fcd277">Lab 10：Query、Formatter 與 Expression Language 實戰</a></li>
-<li><a href="#doc-11-00-custom-processor-spi-3fd4f126">Lab 11：使用 NiFi SPI 開發自訂 Processor</a></li>
+<li><a href="#doc-11-00-custom-processor-spi-3fd4f126">Lab 11：當內建 Processor 不足時，使用 NiFi SPI 開發客製化 Processor</a></li>
 <li><a href="#doc-99-cheatsheet-c43c42bd">速查表：常用 Processor 與排錯關鍵字</a></li>
 </ol>
 <h2 id="doc-readme-b3356305--補充閱讀">補充閱讀</h2>
@@ -5408,32 +5414,43 @@ SELECT * FROM FLOWFILE WHERE "order_id" = '1003'
           class="document-panel markdown-body"
           id="doc-11-00-custom-processor-spi-3fd4f126"
           data-document-path="11-00-custom-processor-spi.md"
-          aria-label="Lab 11：使用 NiFi SPI 開發 JSON 訂單驗證 Processor"
+          aria-label="Lab 11：當內建 Processor 不足時，使用 NiFi SPI 開發客製化 Processor"
           hidden
         >
-<h1 id="doc-11-00-custom-processor-spi-3fd4f126--lab-11使用-nifi-spi-開發-json-訂單驗證-processor">Lab 11：使用 NiFi SPI 開發 JSON 訂單驗證 Processor</h1>
-<p>目標：理解 NiFi SPI 的角色分工，使用 NiFi 公開 Java API 實作自訂 Processor，將它
-打包成 JAR 與 NAR，最後透過 NiFi REST API 安裝並建立可驗證的 JSON 訂單流程。</p>
-<p>預估時間：60～90 分鐘。
+<h1 id="doc-11-00-custom-processor-spi-3fd4f126--lab-11當內建-processor-不足時使用-nifi-spi-開發客製化-processor">Lab 11：當內建 Processor 不足時，使用 NiFi SPI 開發客製化 Processor</h1>
+<p>目標：理解何時需要客製化 Processor，使用 NiFi 公開 Java API 實作兩個可重用的訂單元件，
+將它們打包成 JAR 與 NAR，最後透過 NiFi REST API 安裝並建立可驗證的 JSON 訂單流程。</p>
+<p>預估時間：90～120 分鐘。
 前置條件：完成 <a href="#doc-00-basic-terms-12370c74">Lab 00：基本名詞與環境</a>，並已依
 <a href="#doc-readme-b3356305">README</a> 啟動 NiFi。</p>
 <h2 id="doc-11-00-custom-processor-spi-3fd4f126--你會做出什麼">你會做出什麼</h2>
-<p>本 Lab 會完成一個接近實際專案的驗證流程：</p>
+<p>本 Lab 會建立兩個獨立 Process Group。第一個示範欄位與輸入資料驗證，第二個示範公司
+專屬的跨欄位政策決策：</p>
 <div class="mermaid">flowchart LR
-    valid["Generate valid order"] --> validator["ValidateOrderJsonProcessor"]
-    missing["Generate missing customer"] --> validator
-    amount["Generate invalid amount"] --> validator
-    reader["JsonTreeReader Controller Service"] -. "RecordReaderFactory" .-> validator
-    validator -->|"success"| validLog["LogAttribute valid"]
-    validator -->|"failure"| invalidLog["LogAttribute invalid"]
+    subgraph validation["Process Group: training-lab-11-json-validation"]
+        valid["Generate valid order"] --> validator["ValidateOrderJsonProcessor"]
+        missing["Generate missing customer"] --> validator
+        invalidAmount["Generate invalid amount"] --> validator
+        validationReader["JsonTreeReader"] -. "RecordReaderFactory" .-> validator
+        validator -->|"success"| validLog["LogAttribute valid"]
+        validator -->|"failure"| invalidLog["LogAttribute invalid"]
+    end
+    subgraph policy["Process Group: training-lab-11-order-policy"]
+        policyInput["Generate order cases"] --> policyProcessor["OrderPolicyProcessor"]
+        policyReader["JsonTreeReader"] -. "RecordReaderFactory" .-> policyProcessor
+        policyProcessor -->|"approved"| approvedLog["LogAttribute approved"]
+        policyProcessor -->|"manual-review"| reviewLog["LogAttribute manual review"]
+        policyProcessor -->|"rejected"| rejectedLog["LogAttribute rejected"]
+        policyProcessor -->|"failure"| policyFailureLog["LogAttribute failure"]
+    end
 </div>
-<p>自訂 Processor 的責任是：</p>
+<p>兩個客製化 Processor 的責任是：</p>
 <ol>
-<li>透過 <code>RecordReaderFactory</code> 讀取一個 JSON FlowFile 的 Record。</li>
-<li>驗證 <code>order_id</code>、<code>customer</code>、<code>amount</code> 三個必要欄位。</li>
-<li>將驗證結果寫入 FlowFile attributes。</li>
-<li>將合法資料送到 <code>success</code>，格式錯誤或商業規則不合法的資料送到 <code>failure</code>。</li>
-<li>保留原始 JSON content，讓下游仍可記錄、重試或送往 dead-letter flow。</li>
+<li><code>ValidateOrderJsonProcessor</code>：驗證 <code>order_id</code>、<code>customer</code>、<code>amount</code>，並以
+<code>success/failure</code> 分流。</li>
+<li><code>OrderPolicyProcessor</code>：依 <code>customer_tier</code>、<code>amount</code> 與可配置門檻，分流
+<code>approved</code>、<code>manual-review</code>、<code>rejected</code>、<code>failure</code>。</li>
+<li>兩者都透過 <code>RecordReaderFactory</code> 讀取 Record、寫入可追蹤 attributes，並保留原始 JSON。</li>
 </ol>
 <h2 id="doc-11-00-custom-processor-spi-3fd4f126--開始前先知道spi-是什麼">開始前先知道：SPI 是什麼</h2>
 <p>SPI 是 <code>Service Provider Interface</code>，可翻成「服務提供者介面」。它不是某一個 NiFi
@@ -5454,7 +5471,7 @@ SELECT * FROM FLOWFILE WHERE "order_id" = '1003'
 </tr>
 <tr>
 <td>Service provider</td>
-<td><code>ValidateOrderJsonProcessor</code></td>
+<td><code>ValidateOrderJsonProcessor</code>、<code>OrderPolicyProcessor</code></td>
 <td>提供符合 contract 的實作</td>
 </tr>
 <tr>
@@ -5493,12 +5510,12 @@ NiFi runtime 註冊與執行
 <li>ServiceLoader descriptor 與其他 metadata。</li>
 </ul>
 <p>本 Lab 的 <code>processors</code> module 產生：</p>
-<pre><code class="language-text">nifi-training-custom-processor-processors-2.0.0.jar
+<pre><code class="language-text">nifi-training-custom-processor-processors-2.1.0.jar
 </code></pre>
 <p><code>NAR</code> 是 <code>NiFi Archive</code>。它是 NiFi extension 的部署封裝，除了放入 Processor JAR，
 也會描述 NAR 相依關係與 extension metadata，讓 NiFi 建立 extension classloader。
 本 Lab 最後上傳的是：</p>
-<pre><code class="language-text">nifi-training-custom-processor-nar-2.0.0.nar
+<pre><code class="language-text">nifi-training-custom-processor-nar-2.1.0.nar
 </code></pre>
 <p>可以用以下方式區分兩者：</p>
 <table>
@@ -5529,6 +5546,45 @@ NiFi runtime 註冊與執行
 </table>
 <p>不要把 JAR 直接當成 NiFi 部署單位。課程的部署步驟是「先將 JAR 打包進 NAR，再將
 NAR 上傳給 NiFi」，不是每個 JAR 各自放進 Process Group。</p>
+<h2 id="doc-11-00-custom-processor-spi-3fd4f126--為什麼內建-processor-不足時要寫客製化-processor">為什麼內建 Processor 不足時要寫客製化 Processor</h2>
+<p>NiFi 內建 Processor 適合處理通用能力，但公司專案常需要把一組領域規則封裝成可重用、
+可配置、可測試的單一元件。本 Lab 不把「內建元件做不到」解讀成每一個判斷都無法用
+多個元件組合，而是觀察組合後是否仍能清楚維護、穩定輸出與集中測試。</p>
+<table>
+<thead>
+<tr>
+<th>內建元件</th>
+<th>適合的責任</th>
+<th>本 Lab 為什麼仍需要客製化</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>ValidateRecord</code></td>
+<td>依 schema 判斷 Record 是否有效，通常走 <code>valid/invalid</code></td>
+<td>無法直接提供本公司的金額門檻、客戶層級政策與固定 reason code contract</td>
+</tr>
+<tr>
+<td><code>RouteOnAttribute</code></td>
+<td>依既有 FlowFile attributes 分流</td>
+<td>不負責讀取 Record，也不應把完整訂單政策拆成大量 Expression Language</td>
+</tr>
+<tr>
+<td><code>QueryRecord</code></td>
+<td>以 SQL-like 條件篩選 Record</td>
+<td>可以協助篩選，但政策輸出、錯誤 attributes 與多條固定 relationship 仍需要額外組合</td>
+</tr>
+<tr>
+<td><code>ScriptedValidateRecord</code></td>
+<td>以腳本判斷 Record 是否有效</td>
+<td>腳本適合快速變更；公司共用元件需要 Java API、properties、測試與可部署 NAR 的穩定 contract</td>
+</tr>
+</tbody>
+</table>
+<p>本 Lab 的判斷案例是 <code>OrderPolicyProcessor</code>：<code>amount</code> 與 <code>customer_tier</code> 必須一起參與決策，
+且結果要固定寫入 <code>training.policy.*</code> attributes，再分流到四個明確 relationship。這些
+責任若散落在多個 Processor 或腳本中，政策更新、測試與稽核結果會分散；封裝成客製化
+Processor 後，NiFi UI 與 REST API 只需配置同一組公開 properties。</p>
 <h3 id="doc-11-00-custom-processor-spi-3fd4f126--為什麼使用-record-api">為什麼使用 Record API</h3>
 <p>如果 Processor 直接在 <code>onTrigger</code> 中呼叫某個 JSON library，Processor 會同時負責
 格式解析、schema 來源與商業驗證，之後想支援 CSV、Avro 或不同 schema 時，程式會變得
@@ -5554,9 +5610,14 @@ NAR 上傳給 NiFi」，不是每個 JAR 各自放進 Process Group。</p>
 <td>Processor 只依賴讀取契約，不綁定 reader 實作</td>
 </tr>
 <tr>
-<td>商業規則</td>
+<td>輸入驗證</td>
 <td><code>ValidateOrderJsonProcessor</code></td>
 <td>驗證欄位與決定 success/failure</td>
+</tr>
+<tr>
+<td>商業政策</td>
+<td><code>OrderPolicyProcessor</code></td>
+<td>依跨欄位規則決定 approved/manual-review/rejected/failure</td>
 </tr>
 <tr>
 <td>觀察與後續處理</td>
@@ -5566,8 +5627,8 @@ NAR 上傳給 NiFi」，不是每個 JAR 各自放進 Process Group。</p>
 </tbody>
 </table>
 <p><code>ValidateRecord</code> 適合檢查 Record 是否符合 schema；本 Lab 再往前一步，示範公司通常
-會需要的「必要欄位不可空白、金額必須大於零、錯誤原因要可追蹤」等商業規則。這也是
-需要自訂 Processor 的原因。</p>
+會需要的「必要欄位不可空白、金額必須大於零、客戶層級影響政策、錯誤原因要可追蹤」等
+商業規則。這是需要客製化 Processor 的具體邊界。</p>
 <h2 id="doc-11-00-custom-processor-spi-3fd4f126--容器啟動與-lab-11-初始化順序">容器啟動與 Lab 11 初始化順序</h2>
 <p><code>docker compose up -d</code> 只會啟動 NiFi runtime，不會自動把 repository 裡的 Java
 Processor 載入 NiFi。Lab 11 必須依序完成：</p>
@@ -5587,7 +5648,7 @@ Processor 載入 NiFi。Lab 11 必須依序完成：</p>
 </tr>
 <tr>
 <td>建置 extension</td>
-<td>JAR、NAR 與 7 個測試通過</td>
+<td>一個 JAR、NAR、兩個 Processor 與 17 個測試通過</td>
 <td><code>build.ps1</code>、<code>BUILD SUCCESS</code></td>
 </tr>
 <tr>
@@ -5602,7 +5663,7 @@ Processor 載入 NiFi。Lab 11 必須依序完成：</p>
 </tr>
 <tr>
 <td>驗證資料流</td>
-<td>三種案例依預期分流</td>
+<td>驗證流程與政策流程依預期分流</td>
 <td>queue FlowFile attributes/content</td>
 </tr>
 </tbody>
@@ -5610,6 +5671,7 @@ Processor 載入 NiFi。Lab 11 必須依序完成：</p>
 <p>從 repository 根目錄執行：</p>
 <pre><code class="language-powershell">.\examples\nifi-custom-processor\build.ps1
 .\examples\nifi-custom-processor\scripts\setup-flow.ps1
+.\examples\nifi-custom-processor\scripts\setup-policy-flow.ps1 -SkipNarUpload
 </code></pre>
 <p>如果只修改 Java 後想保留 <code>target/</code>，可以使用：</p>
 <pre><code class="language-powershell">.\examples\nifi-custom-processor\build.ps1 -SkipClean
@@ -5630,11 +5692,17 @@ Get-ChildItem
 │  ├─ pom.xml
 │  └─ src/
 │     ├─ main/java/com/example/nifi/training/ValidateOrderJsonProcessor.java
+│     ├─ main/java/com/example/nifi/training/OrderPolicyProcessor.java
 │     ├─ main/resources/META-INF/services/org.apache.nifi.processor.Processor
-│     └─ test/java/com/example/nifi/training/ValidateOrderJsonProcessorTest.java
+│     └─ test/java/com/example/nifi/training/
+│        ├─ ValidateOrderJsonProcessorTest.java
+│        └─ OrderPolicyProcessorTest.java
 ├─ nifi-training-custom-processor-nar/
 │  └─ pom.xml
-└─ scripts/setup-flow.ps1
+└─ scripts/
+   ├─ nifi-flow-helper.ps1
+   ├─ setup-flow.ps1
+   └─ setup-policy-flow.ps1
 </code></pre>
 <p><code>processors/pom.xml</code> 的 <code>packaging</code> 是 <code>jar</code>；<code>nar/pom.xml</code> 的 <code>packaging</code> 是 <code>nar</code>。
 這個 module 分工讓「Java 編譯與測試」和「NiFi 部署封裝」各自有清楚責任。</p>
@@ -5647,27 +5715,28 @@ Get-ChildItem
 <pre><code class="language-text">mvn clean verify
 </code></pre>
 <p>預期結果包含：</p>
-<pre><code class="language-text">Tests run: 7, Failures: 0, Errors: 0
+<pre><code class="language-text">Tests run: 17, Failures: 0, Errors: 0
 BUILD SUCCESS
-.../nifi-training-custom-processor-processors-2.0.0.jar
-.../nifi-training-custom-processor-nar-2.0.0.nar
+.../nifi-training-custom-processor-processors-2.1.0.jar
+.../nifi-training-custom-processor-nar-2.1.0.nar
 </code></pre>
 <p>建置完成只代表 JAR、測試與 NAR 成功，尚未代表 NiFi runtime 已經載入 Processor。</p>
 <h3 id="doc-11-00-custom-processor-spi-3fd4f126--step-3從-jarnar-反查註冊資訊">Step 3：從 JAR/NAR 反查註冊資訊</h3>
 <p>查看 processors JAR 內的 class 與 descriptor：</p>
-<pre><code class="language-powershell">$jarPath = ".\examples\nifi-custom-processor\nifi-training-custom-processor-processors\target\nifi-training-custom-processor-processors-2.0.0.jar"
-jar tf $jarPath | Select-String 'ValidateOrderJsonProcessor|META-INF/services/org.apache.nifi.processor.Processor'
+<pre><code class="language-powershell">$jarPath = ".\examples\nifi-custom-processor\nifi-training-custom-processor-processors\target\nifi-training-custom-processor-processors-2.1.0.jar"
+jar tf $jarPath | Select-String 'ValidateOrderJsonProcessor|OrderPolicyProcessor|META-INF/services/org.apache.nifi.processor.Processor'
 </code></pre>
 <p>查看 NAR 內的 Processor JAR：</p>
-<pre><code class="language-powershell">$narPath = ".\examples\nifi-custom-processor\nifi-training-custom-processor-nar\target\nifi-training-custom-processor-nar-2.0.0.nar"
-jar tf $narPath | Select-String 'nifi-training-custom-processor-processors-2.0.0.jar|bundled-dependencies'
+<pre><code class="language-powershell">$narPath = ".\examples\nifi-custom-processor\nifi-training-custom-processor-nar\target\nifi-training-custom-processor-nar-2.1.0.nar"
+jar tf $narPath | Select-String 'nifi-training-custom-processor-processors-2.1.0.jar|bundled-dependencies'
 </code></pre>
 <p>查看 ServiceLoader descriptor 的內容：</p>
 <pre><code class="language-powershell">jar xf $jarPath META-INF/services/org.apache.nifi.processor.Processor
 Get-Content .\META-INF\services\org.apache.nifi.processor.Processor
 </code></pre>
-<p>預期只有一個 class name：</p>
+<p>預期有兩個 class name：</p>
 <pre><code class="language-text">com.example.nifi.training.ValidateOrderJsonProcessor
+com.example.nifi.training.OrderPolicyProcessor
 </code></pre>
 <p><code>jar xf</code> 會在目前目錄產生檢查用檔案；檢查完成後可以刪除這個非課程產物的
 <code>META-INF</code> 資料夾。若不想解開 JAR，也可以直接使用 Maven target 中的 resource 檔案
@@ -5767,6 +5836,88 @@ Processor 才能輸出可讀的 <code>customer.required</code>。若 schema 直�
 </code></pre>
 <p>固定順序是 why：下游 log、測試與告警規則可以穩定比對，不必依賴 HashMap 或 JSON
 欄位輸入順序。</p>
+<h3 id="doc-11-00-custom-processor-spi-3fd4f126--step-4讀懂-orderpolicyprocessor-的可配置政策">Step 4：讀懂 <code>OrderPolicyProcessor</code> 的可配置政策</h3>
+<p>原始碼：</p>
+<pre><code class="language-text">examples/nifi-custom-processor/
+└─ nifi-training-custom-processor-processors/
+   └─ src/main/java/com/example/nifi/training/OrderPolicyProcessor.java
+</code></pre>
+<p>這個 Processor 使用相同的 <code>RecordReaderFactory</code>，但把公司規則公開成 properties：</p>
+<table>
+<thead>
+<tr>
+<th>Property</th>
+<th>預設值</th>
+<th>架構意義</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>Record Reader</code></td>
+<td>無</td>
+<td>由 Controller Service 負責 JSON 解析與 schema</td>
+</tr>
+<tr>
+<td><code>Manual Review Threshold</code></td>
+<td><code>1000</code></td>
+<td>standard 客戶超過此金額時進人工審核</td>
+</tr>
+<tr>
+<td><code>Reject Threshold</code></td>
+<td><code>5000</code></td>
+<td>任何客戶超過此金額時拒絕</td>
+</tr>
+<tr>
+<td><code>VIP Customer Tier</code></td>
+<td><code>vip</code></td>
+<td>指定可通過人工審核門檻的客戶層級值</td>
+</tr>
+</tbody>
+</table>
+<p>Processor 會先檢查輸入欄位，再依序套用政策：</p>
+<pre><code class="language-text">RecordReaderFactory
+      ↓
+一個 JSON Record
+      ├─ 輸入欄位錯誤 → failure
+      ├─ amount > Reject Threshold → rejected
+      ├─ amount > Manual Review Threshold 且不是 VIP → manual-review
+      └─ 其他合法資料 → approved
+</code></pre>
+<p>輸出 contract 如下：</p>
+<table>
+<thead>
+<tr>
+<th>Relationship</th>
+<th><code>training.policy.decision</code></th>
+<th><code>training.policy.reason</code></th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>approved</code></td>
+<td><code>approved</code></td>
+<td><code>accepted</code></td>
+</tr>
+<tr>
+<td><code>manual-review</code></td>
+<td><code>manual_review</code></td>
+<td><code>tier.amount.review</code></td>
+</tr>
+<tr>
+<td><code>rejected</code></td>
+<td><code>rejected</code></td>
+<td><code>amount.limit</code></td>
+</tr>
+<tr>
+<td><code>failure</code></td>
+<td><code>error</code></td>
+<td><code>record-reader.error</code> 或欄位錯誤 code</td>
+</tr>
+</tbody>
+</table>
+<p><code>PropertyDescriptor</code> 的 why 是把政策門檻留在 NiFi instance 設定，而不是每次改門檻都
+重新編譯 Java。<code>customValidate</code> 另外確保 <code>Reject Threshold</code> 大於
+<code>Manual Review Threshold</code>，避免 runtime 出現互相矛盾的規則。</p>
 <h2 id="doc-11-00-custom-processor-spi-3fd4f126--part-3先看測試再看實作邊界">Part 3：先看測試，再看實作邊界</h2>
 <p>測試使用 <code>TestRunners.newTestRunner</code>、<code>MockFlowFile</code>，並在 mock runtime 中啟用真正的
 <code>JsonTreeReader</code>。這樣測試不是只測字串判斷，也會驗證 Processor 與 <code>RecordReaderFactory</code>
@@ -5809,6 +5960,45 @@ Processor 才能輸出可讀的 <code>customer.required</code>。若 schema 直�
 </tr>
 </tbody>
 </table>
+<p><code>OrderPolicyProcessorTest</code> 另外驗證：</p>
+<table>
+<thead>
+<tr>
+<th>測試情境</th>
+<th>預期結果</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>standard 客戶、amount <code>800</code></td>
+<td><code>approved</code>、<code>accepted</code></td>
+</tr>
+<tr>
+<td>VIP 客戶、amount <code>4500</code></td>
+<td><code>approved</code>、<code>accepted</code></td>
+</tr>
+<tr>
+<td>standard 客戶、amount <code>1500</code></td>
+<td><code>manual-review</code>、<code>tier.amount.review</code></td>
+</tr>
+<tr>
+<td>任一客戶、amount <code>6000</code></td>
+<td><code>rejected</code>、<code>amount.limit</code></td>
+</tr>
+<tr>
+<td>缺少 <code>customer_tier</code></td>
+<td><code>failure</code>、<code>customer_tier.required</code></td>
+</tr>
+<tr>
+<td>自訂門檻</td>
+<td>由 Processor properties 改變分流結果</td>
+</tr>
+<tr>
+<td>JSON 無法解析或一個 FlowFile 多筆 record</td>
+<td><code>failure</code></td>
+</tr>
+</tbody>
+</table>
 <p>重新執行測試：</p>
 <pre><code class="language-powershell">.\examples\nifi-custom-processor\build.ps1 -SkipClean
 </code></pre>
@@ -5817,10 +6007,11 @@ NAR classloader 或 REST flow 配置問題。</p>
 <h2 id="doc-11-00-custom-processor-spi-3fd4f126--part-4以-rest-api-安裝-nar-並建立-flow">Part 4：以 REST API 安裝 NAR 並建立 Flow</h2>
 <p>腳本位置：</p>
 <pre><code class="language-text">examples/nifi-custom-processor/scripts/setup-flow.ps1
+examples/nifi-custom-processor/scripts/setup-policy-flow.ps1
 </code></pre>
-<p>它使用公開 REST API 完成整個 Lab 初始化，不需要手動拖曳元件。腳本中的每一個更新
-都會先讀取目前 entity 的 <code>revision</code>，再送出 <code>PUT</code>；不要把這個 revision 當成可以永久
-寫死的版本號。</p>
+<p>兩支腳本使用公開 REST API 完成各自 Process Group 的初始化，不需要手動拖曳元件。
+共用的 <code>nifi-flow-helper.ps1</code> 會先讀取目前 entity 的 <code>revision</code>，再送出 <code>PUT</code>；不要把
+這個 revision 當成可以永久寫死的版本號。</p>
 <h3 id="doc-11-00-custom-processor-spi-3fd4f126--step-1取得-token上傳與等待-nar">Step 1：取得 token、上傳與等待 NAR</h3>
 <p>流程依序使用：</p>
 <pre><code class="language-text">POST /access/token
@@ -5835,7 +6026,13 @@ GET  /flow/processor-types
 <pre><code class="language-text">type     = com.example.nifi.training.ValidateOrderJsonProcessor
 group    = com.example.nifi.training
 artifact = nifi-training-custom-processor-nar
-version  = 2.0.0
+version  = 2.1.0
+</code></pre>
+<p><code>setup-policy-flow.ps1</code> 會以相同 bundle 驗證：</p>
+<pre><code class="language-text">type     = com.example.nifi.training.OrderPolicyProcessor
+group    = com.example.nifi.training
+artifact = nifi-training-custom-processor-nar
+version  = 2.1.0
 </code></pre>
 <h3 id="doc-11-00-custom-processor-spi-3fd4f126--step-2建立並啟用-controller-service">Step 2：建立並啟用 Controller Service</h3>
 <p>腳本用以下 API 找到 reader type 並建立 service：</p>
@@ -5916,6 +6113,68 @@ Process Group 與元件仍會保留給你在 UI 觀察。若要刪除本次建�
   -SkipNarUpload `
   -GroupName training-lab-11-json-validation-rerun
 </code></pre>
+<p>NAR 安裝完成後，使用第二支腳本建立政策 Process Group：</p>
+<pre><code class="language-powershell">.\examples\nifi-custom-processor\scripts\setup-policy-flow.ps1 `
+  -SkipNarUpload `
+  -GroupName training-lab-11-order-policy-rerun
+</code></pre>
+<p>政策腳本建立五個 <code>GenerateFlowFile</code> 案例：</p>
+<pre><code class="language-json">{"order_id":"2001","customer":"Alice","customer_tier":"standard","amount":800}
+{"order_id":"2002","customer":"Bob","customer_tier":"vip","amount":4500}
+{"order_id":"2003","customer":"Carol","customer_tier":"standard","amount":1500}
+{"order_id":"2004","customer":"Dora","customer_tier":"vip","amount":6000}
+{"order_id":"2005","customer":"Eve","amount":100}
+</code></pre>
+<p>政策 Processor 的設定是：</p>
+<pre><code class="language-text">Record Reader = JSON policy reader
+Manual Review Threshold = 1000
+Reject Threshold = 5000
+VIP Customer Tier = vip
+</code></pre>
+<p>腳本最後以 <code>Queue</code> 與 FlowFile API 讀回四條輸出 relationship，確認 decision、reason
+與原始 content。五個案例預期為：</p>
+<table>
+<thead>
+<tr>
+<th>案例</th>
+<th>Relationship</th>
+<th>Decision</th>
+<th>Reason</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>standard、800</td>
+<td><code>approved</code></td>
+<td><code>approved</code></td>
+<td><code>accepted</code></td>
+</tr>
+<tr>
+<td>vip、4500</td>
+<td><code>approved</code></td>
+<td><code>approved</code></td>
+<td><code>accepted</code></td>
+</tr>
+<tr>
+<td>standard、1500</td>
+<td><code>manual-review</code></td>
+<td><code>manual_review</code></td>
+<td><code>tier.amount.review</code></td>
+</tr>
+<tr>
+<td>vip、6000</td>
+<td><code>rejected</code></td>
+<td><code>rejected</code></td>
+<td><code>amount.limit</code></td>
+</tr>
+<tr>
+<td>缺少 <code>customer_tier</code></td>
+<td><code>failure</code></td>
+<td><code>error</code></td>
+<td><code>customer_tier.required</code></td>
+</tr>
+</tbody>
+</table>
 <h2 id="doc-11-00-custom-processor-spi-3fd4f126--part-5在-nifi-ui-反查部署結果">Part 5：在 NiFi UI 反查部署結果</h2>
 <p>開啟：</p>
 <pre><code class="language-text">https://localhost:8443/nifi
@@ -5929,6 +6188,18 @@ Process Group 與元件仍會保留給你在 UI 觀察。若要刪除本次建�
 <li>兩個 <code>LogAttribute</code> 的 <code>success</code> 已 auto-terminate。</li>
 <li>Processor 沒有 bulletin 顯示 invalid 或 reader 設定錯誤。</li>
 </ol>
+<p>接著開啟 <code>training-lab-11-order-policy</code> 或腳本指定的政策 Process Group，檢查：</p>
+<ol>
+<li><code>JSON policy reader</code> 是 <code>Enabled</code>。</li>
+<li><code>Apply order policy</code> 的四個 properties 都有值，且 <code>Record Reader</code> 指向該 service。</li>
+<li><code>approved</code>、<code>manual-review</code>、<code>rejected</code>、<code>failure</code> 都有下游 connection。</li>
+<li>四個 <code>LogAttribute</code> 的 <code>success</code> 都已 auto-terminate。</li>
+<li><code>Apply order policy</code> 沒有 threshold 順序或 Reader 設定的 bulletin。</li>
+</ol>
+<p>政策案例的反查順序是：先從 <code>LogAttribute</code> 或 Queue 看
+<code>training.policy.decision</code>、<code>training.policy.reason</code>，再回到 Processor properties 對照
+門檻，最後回到 <code>OrderPolicyProcessor.java</code> 的政策判斷。這樣可以分辨結果是由資料、
+Flow 設定或 Java policy 造成。</p>
 <p>腳本為了讓驗證可重跑，會在每個案例驗證完成後清空輸出 queue，所以流程圖上的 queue
 通常是空的；這是清理策略，不代表 Processor 沒有執行。要觀察內容，請在腳本輸出
 「驗證通過」時立即查詢該 queue，或在 UI 手動先 stop 下游、再執行單一案例。</p>
@@ -5950,26 +6221,47 @@ Process Group 與元件仍會保留給你在 UI 觀察。若要刪除本次建�
 <li>確認缺少欄位時由 Processor 輸出商業錯誤，而不是由 reader 直接拒絕。</li>
 </ol>
 <h3 id="doc-11-00-custom-processor-spi-3fd4f126--練習-3設計-failure-下游">練習 3：設計 failure 下游</h3>
-<p>不要直接將 <code>failure</code> auto-terminate。請設計公司專案中的錯誤處理：</p>
+<p>保留 <code>failure</code> 作為公司專案的錯誤處理入口，請設計錯誤處理：</p>
 <ul>
 <li>哪些錯誤可重試？</li>
 <li>哪些錯誤應進 dead-letter？</li>
 <li><code>training.validation.reason</code> 要如何交給告警或稽核系統？</li>
 <li>如何從 bulletin、Provenance 與 LogAttribute 反查原始 FlowFile？</li>
 </ul>
+<h3 id="doc-11-00-custom-processor-spi-3fd4f126--練習-4修改-orderpolicyprocessor-的公司門檻">練習 4：修改 OrderPolicyProcessor 的公司門檻</h3>
+<p>沿用 <code>training-lab-11-order-policy</code>，只修改 Processor properties：</p>
+<ol>
+<li>將 <code>Manual Review Threshold</code> 改為 <code>500</code>。</li>
+<li>重新執行一筆 amount <code>800</code> 的 standard 訂單。</li>
+<li>從 Queue 或 <code>LogAttribute</code> 確認它由 <code>approved</code> 改走 <code>manual-review</code>。</li>
+<li>反查 <code>OrderPolicyProcessorTest</code> 與 <code>OrderPolicyProcessor.java</code>，說明結果是由哪個
+property 與哪個跨欄位條件造成。</li>
+</ol>
+<h3 id="doc-11-00-custom-processor-spi-3fd4f126--練習-5新增一個政策結果">練習 5：新增一個政策結果</h3>
+<p>新增 <code>blocked</code> relationship 與 <code>customer_tier = blocked</code> 的拒絕規則：</p>
+<ol>
+<li>修改 Processor 的 relationship、reason code 與 Java 判斷。</li>
+<li>在 <code>OrderPolicyProcessorTest</code> 增加單元測試。</li>
+<li>更新 ServiceLoader/NAR 後提升版本並執行 <code>build.ps1</code>。</li>
+<li>更新 <code>setup-policy-flow.ps1</code> 的 connection 與驗證案例。</li>
+<li>觀察為什麼只修改 Java 不足以完成一條新的 NiFi flow relationship。</li>
+</ol>
 <h2 id="doc-11-00-custom-processor-spi-3fd4f126--完成檢查">完成檢查</h2>
 <ul class="contains-task-list">
 <li class="task-list-item"><input type="checkbox" disabled> 能說明 SPI 的 contract、provider、discovery metadata 與 runtime。</li>
 <li class="task-list-item"><input type="checkbox" disabled> <code>build.ps1</code> 使用 Docker Maven + JDK 21 完成 <code>mvn verify</code>。</li>
-<li class="task-list-item"><input type="checkbox" disabled> 7 個 <code>nifi-mock</code> 測試全部通過。</li>
-<li class="task-list-item"><input type="checkbox" disabled> JAR 內有 Processor class 與 ServiceLoader descriptor。</li>
-<li class="task-list-item"><input type="checkbox" disabled> NAR 內有 2.0.0 Processor JAR。</li>
-<li class="task-list-item"><input type="checkbox" disabled> <code>GET /flow/processor-types</code> 找得到 <code>ValidateOrderJsonProcessor</code>。</li>
+<li class="task-list-item"><input type="checkbox" disabled> 17 個 <code>nifi-mock</code> 測試全部通過。</li>
+<li class="task-list-item"><input type="checkbox" disabled> JAR 內有兩個 Processor class 與兩行 ServiceLoader descriptor。</li>
+<li class="task-list-item"><input type="checkbox" disabled> NAR 內有 2.1.0 Processor JAR。</li>
+<li class="task-list-item"><input type="checkbox" disabled> <code>GET /flow/processor-types</code> 找得到 <code>ValidateOrderJsonProcessor</code> 與 <code>OrderPolicyProcessor</code>。</li>
 <li class="task-list-item"><input type="checkbox" disabled> <code>GET /flow/controller-service-types</code> 找得到 <code>JsonTreeReader</code>。</li>
 <li class="task-list-item"><input type="checkbox" disabled> Controller Service 使用明確 schema 並成功啟用。</li>
 <li class="task-list-item"><input type="checkbox" disabled> <code>Record Reader</code> property 指向 <code>JsonTreeReader</code>。</li>
 <li class="task-list-item"><input type="checkbox" disabled> 完整訂單走 <code>success</code>，缺少 customer 與 invalid amount 走 <code>failure</code>。</li>
 <li class="task-list-item"><input type="checkbox" disabled> FlowFile 有 <code>training.validation.status</code> 與 <code>training.validation.reason</code>。</li>
+<li class="task-list-item"><input type="checkbox" disabled> 政策案例能依 <code>approved</code>、<code>manual-review</code>、<code>rejected</code>、<code>failure</code> 分流。</li>
+<li class="task-list-item"><input type="checkbox" disabled> FlowFile 有 <code>training.policy.decision</code> 與 <code>training.policy.reason</code>。</li>
+<li class="task-list-item"><input type="checkbox" disabled> 能說明 Processor properties 如何改變政策結果。</li>
 <li class="task-list-item"><input type="checkbox" disabled> FlowFile content 維持來源 JSON。</li>
 <li class="task-list-item"><input type="checkbox" disabled> 能說明 JAR、NAR、Processor instance 與 Process Group 的差異。</li>
 <li class="task-list-item"><input type="checkbox" disabled> 知道修改 REST 元件前要先取得最新 <code>revision</code>。</li>
@@ -5981,10 +6273,10 @@ Process Group 與元件仍會保留給你在 UI 觀察。若要刪除本次建�
 <h3 id="doc-11-00-custom-processor-spi-3fd4f126--processor-type-找不到">Processor type 找不到</h3>
 <p>依序檢查：</p>
 <ol>
-<li>NAR 是否產生且檔名為 <code>...-2.0.0.nar</code>。</li>
+<li>NAR 是否產生且檔名為 <code>...-2.1.0.nar</code>。</li>
 <li>upload response 的 identifier 是否已完成安裝。</li>
 <li><code>GET /controller/nar-manager/nars/{id}</code> 是否有 <code>failureMessage</code>。</li>
-<li><code>GET /flow/processor-types</code> 是否回傳 2.0.0 bundle。</li>
+<li><code>GET /flow/processor-types</code> 是否回傳 2.1.0 bundle。</li>
 <li><code>docker compose logs --tail=220 nifi</code> 是否出現 classloader 或 dependency 錯誤。</li>
 </ol>
 <h3 id="doc-11-00-custom-processor-spi-3fd4f126--controller-service-無法-enabled">Controller Service 無法 Enabled</h3>
@@ -6002,6 +6294,9 @@ Process Group 與元件仍會保留給你在 UI 觀察。若要刪除本次建�
 <li><code>Record Reader</code> 是否已設定。</li>
 <li>Reader Controller Service 是否為 <code>Enabled</code>。</li>
 <li><code>success</code>、<code>failure</code> 是否都有 connection 或明確 auto-terminate。</li>
+<li><code>OrderPolicyProcessor</code> 的 <code>approved</code>、<code>manual-review</code>、<code>rejected</code>、<code>failure</code> 是否都有
+connection 或明確 auto-terminate。</li>
+<li><code>Manual Review Threshold</code> 是否小於 <code>Reject Threshold</code>，且兩者都是有限的非負數。</li>
 <li><code>LogAttribute</code> sink 的 <code>success</code> 是否已 auto-terminate。</li>
 </ul>
 <h3 id="doc-11-00-custom-processor-spi-3fd4f126--queue-沒有-flowfile">Queue 沒有 FlowFile</h3>
@@ -6010,7 +6305,7 @@ Process Group 與元件仍會保留給你在 UI 觀察。若要刪除本次建�
 <li><code>GenerateFlowFile</code> <code>RUN_ONCE</code>。</li>
 <li>等待來源 connection 的 queue listing。</li>
 <li>自訂 Processor <code>RUN_ONCE</code>。</li>
-<li>等待預期的 success/failure queue。</li>
+<li>等待預期的 validation 或 policy queue。</li>
 </ol>
 <p>若手動操作，不能只執行自訂 Processor；上游必須先產生 FlowFile。若腳本已輸出驗證
 成功，後續看到 queue 為空是因為腳本已讀回並清除測試結果。</p>
@@ -6023,6 +6318,14 @@ Process Group 與元件仍會保留給你在 UI 觀察。若要刪除本次建�
 </code></pre>
 <p>如果把欄位定義成單一 <code>string</code>，reader 可能在商業 Processor 執行前就拒絕資料；那是
 schema contract 的結果，不是欄位驗證規則沒有執行。</p>
+<h3 id="doc-11-00-custom-processor-spi-3fd4f126--政策結果不符合預期">政策結果不符合預期</h3>
+<p>先確認：</p>
+<ul>
+<li><code>customer_tier</code> 是否為 <code>vip</code> 或其他預期的非 VIP 值。</li>
+<li><code>amount</code> 是否真的超過 <code>Manual Review Threshold</code> 或 <code>Reject Threshold</code>。</li>
+<li><code>VIP Customer Tier</code> property 是否與輸入資料的 tier code 一致。</li>
+<li>讀取的是政策 Process Group，而不是驗證 Process Group 的 <code>training.validation.*</code> attributes。</li>
+</ul>
 <h2 id="doc-11-00-custom-processor-spi-3fd4f126--本-lab-的學習重點回顧">本 Lab 的學習重點回顧</h2>
 <p>本 Lab 走完自訂 Processor 的完整生命週期：</p>
 <ol>
@@ -6034,10 +6337,14 @@ schema contract 的結果，不是欄位驗證規則沒有執行。</p>
 <li>以 <code>nifi-mock</code> 在沒有 NiFi runtime 時先驗證行為。</li>
 <li>以 REST API 上傳 NAR、啟用 Controller Service、建立 flow、執行與讀回結果。</li>
 <li>以 attributes、queue、bulletin、Provenance 與 logs 反查實際執行結果。</li>
+<li>以同一個 JAR/NAR 提供兩個 Processor type，並部署到兩個獨立 Process Group。</li>
+<li>以 <code>OrderPolicyProcessor</code> 將跨欄位公司規則封裝成可配置 properties、固定 reason code
+與多條 relationship。</li>
 </ol>
 <p>公司專案要擴充 NiFi SPI 時，可以先沿用這個最小模型，再依需求加入其他 Controller
-Service、state、Record writer 或 custom UI。每增加一個 extension 類型，就同步增加
-公開 API 依賴、descriptor、測試、NAR 依賴與可觀察的 failure path。</p>
+Service、state、Record writer 或 custom UI。每增加一個 extension 類型，就同步增加 Java
+class、ServiceLoader descriptor、測試、NAR 版本與可觀察的 failure path；每增加一條
+relationship，也要同步更新下游 connection、auto-terminate 與部署驗證。</p>
 <h2 id="doc-11-00-custom-processor-spi-3fd4f126--官方文件依據">官方文件依據</h2>
 <ul>
 <li><a href="https://nifi.apache.org/nifi-docs/developer-guide.html" target="_blank" rel="noreferrer noopener">Apache NiFi Developer's Guide</a></li>
@@ -6247,6 +6554,11 @@ Service、state、Record writer 或 custom UI。每增加一個 extension 類型
 <td><code>ValidateOrderJsonProcessor</code></td>
 <td>以 Java SPI 驗證 JSON 訂單欄位並寫入 validation attributes</td>
 </tr>
+<tr>
+<td>自訂政策</td>
+<td><code>OrderPolicyProcessor</code></td>
+<td>以跨欄位規則分流 approved、manual-review、rejected、failure</td>
+</tr>
 </tbody>
 </table>
 <h2 id="doc-99-cheatsheet-c43c42bd--常用-controller-service">常用 Controller Service</h2>
@@ -6302,12 +6614,12 @@ Service、state、Record writer 或 custom UI。每增加一個 extension 類型
 <tr>
 <td><code>PropertyDescriptor</code></td>
 <td>宣告 property、validator 與 allowable value</td>
-<td><code>Hash Algorithm</code>、<code>Output Attribute</code></td>
+<td><code>Record Reader</code>、<code>Manual Review Threshold</code></td>
 </tr>
 <tr>
 <td><code>Relationship</code></td>
 <td>宣告 FlowFile 的處理出口</td>
-<td><code>success</code>、<code>failure</code></td>
+<td><code>success</code>、<code>failure</code>、<code>approved</code>、<code>manual-review</code>、<code>rejected</code></td>
 </tr>
 <tr>
 <td>ServiceLoader descriptor</td>
@@ -6322,7 +6634,7 @@ Service、state、Record writer 或 custom UI。每增加一個 extension 類型
 <tr>
 <td>NAR</td>
 <td>NiFi extension 的部署封裝</td>
-<td><code>nifi-training-custom-processor-nar</code></td>
+<td><code>nifi-training-custom-processor-nar-2.1.0.nar</code></td>
 </tr>
 </tbody>
 </table>
@@ -6331,6 +6643,11 @@ Service、state、Record writer 或 custom UI。每增加一個 extension 類型
 </code></pre>
 <p>建置與測試：</p>
 <pre><code class="language-powershell">.\examples\nifi-custom-processor\build.ps1
+</code></pre>
+<p>建立第二個政策 Process Group：</p>
+<pre><code class="language-powershell">.\examples\nifi-custom-processor\scripts\setup-policy-flow.ps1 `
+  -SkipNarUpload `
+  -GroupName training-lab-11-order-policy
 </code></pre>
 <p>REST-first 驗證順序：</p>
 <pre><code class="language-text">POST /access/token
@@ -6788,12 +7105,12 @@ $token = curl.exe -k -s -X POST "https://localhost:8443/nifi-api/access/token" `
 <h2 id="doc-supplement-api-endpoints-fa3546fe--custom-processor-spi-api-實作流程">Custom Processor SPI API 實作流程</h2>
 <p>Lab 11 的範例位於 <code>examples/nifi-custom-processor/</code>，以 REST API 完成 NAR 安裝與測試 Flow 建立。建議沿著「先確認 extension，再建立 flow，最後讀回結果」的順序，不要只看到 upload 成功就假設 Processor 已可執行。</p>
 <h3 id="doc-supplement-api-endpoints-fa3546fe--1-上傳並等待-nar-安裝">1. 上傳並等待 NAR 安裝</h3>
-<pre><code class="language-powershell">$narPath = ".\examples\nifi-custom-processor\nifi-training-custom-processor-nar\target\nifi-training-custom-processor-nar-2.0.0.nar"
+<pre><code class="language-powershell">$narPath = ".\examples\nifi-custom-processor\nifi-training-custom-processor-nar\target\nifi-training-custom-processor-nar-2.1.0.nar"
 
 curl.exe -k -sS -X POST `
   -H "Authorization: Bearer $token" `
   -H "Content-Type: application/octet-stream" `
-  -H "filename: nifi-training-custom-processor-nar-2.0.0.nar" `
+  -H "filename: nifi-training-custom-processor-nar-2.1.0.nar" `
   --data-binary "@$narPath" `
   "https://localhost:8443/nifi-api/controller/nar-manager/nars/content"
 </code></pre>
@@ -6806,8 +7123,9 @@ curl.exe -k -sS -X POST `
 </code></pre>
 <p>篩選：</p>
 <pre><code class="language-text">com.example.nifi.training.ValidateOrderJsonProcessor
+com.example.nifi.training.OrderPolicyProcessor
 </code></pre>
-<p>同時讀取 response 的 <code>bundle.group</code>、<code>bundle.artifact</code> 與 <code>bundle.version</code>，再帶入建立 Processor 的 request。這能讓程式使用 NiFi 目前實際註冊的 bundle metadata，而不是依賴 UI 顯示文字或自行猜版本。</p>
+<p>同時讀取 response 的 <code>bundle.group</code>、<code>bundle.artifact</code> 與 <code>bundle.version</code>，再帶入建立 Processor 的 request。這能讓程式使用 NiFi 目前實際註冊的 bundle metadata，而不是依賴 UI 顯示文字或自行猜版本。若要建立政策流程，將 <code>type</code> 改為 <code>OrderPolicyProcessor</code>，並依 Lab 11 的 properties 與四條 relationship 建立對應 connection。</p>
 <h3 id="doc-supplement-api-endpoints-fa3546fe--3-建立-processor-與-connection">3. 建立 Processor 與 Connection</h3>
 <p>建立元件時使用公開的 <code>ProcessorEntity</code> 與 <code>ConnectionEntity</code> 契約：</p>
 <pre><code class="language-text">POST /process-groups/{id}/processors
@@ -6825,7 +7143,7 @@ POST /process-groups/{id}/connections
     "bundle": {
       "group": "com.example.nifi.training",
       "artifact": "nifi-training-custom-processor-nar",
-      "version": "2.0.0"
+      "version": "2.1.0"
     },
     "position": {
       "x": 400.0,

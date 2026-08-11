@@ -1,7 +1,7 @@
 [CmdletBinding()]
 param(
     [string]$BaseUrl = "https://localhost:8443/nifi-api",
-    [string]$GroupName = "training-lab-11-json-validation",
+    [string]$GroupName = "training-lab-11-order-policy",
     [switch]$SkipNarUpload,
     [switch]$Cleanup
 )
@@ -13,7 +13,7 @@ $projectDirectory = (Resolve-Path -LiteralPath (Join-Path $PSScriptRoot "..")).P
 $repositoryRoot = (Resolve-Path -LiteralPath (Join-Path $PSScriptRoot "..\..\..")).Path
 $envPath = Join-Path $repositoryRoot ".env"
 $narPath = Join-Path $projectDirectory "nifi-training-custom-processor-nar\target\nifi-training-custom-processor-nar-2.1.0.nar"
-$processorType = "com.example.nifi.training.ValidateOrderJsonProcessor"
+$processorType = "com.example.nifi.training.OrderPolicyProcessor"
 $processorGroup = "com.example.nifi.training"
 $processorArtifact = "nifi-training-custom-processor-nar"
 $processorVersion = "2.1.0"
@@ -22,86 +22,98 @@ $readerGroup = "org.apache.nifi"
 $readerArtifact = "nifi-record-serialization-services-nar"
 $readerVersion = "2.9.0"
 $context = New-NifiContext -BaseUrl $BaseUrl
-$orderSchema = @'
+$policySchema = @'
 {
   "type": "record",
-  "name": "TrainingOrder",
+  "name": "TrainingOrderPolicy",
   "fields": [
     {"name": "order_id", "type": ["null", "string"], "default": null},
     {"name": "customer", "type": ["null", "string"], "default": null},
+    {"name": "customer_tier", "type": ["null", "string"], "default": null},
     {"name": "amount", "type": ["null", "double"], "default": null}
   ]
 }
 '@
-$validationCases = @(
+$policyCases = @(
     [PSCustomObject]@{
-        Name = "valid order"
-        ProcessorName = "Generate valid order"
-        Content = '{"order_id":"1001","customer":"Alice","amount":120.50}'
-        ExpectedConnection = "success"
-        ExpectedStatus = "valid"
+        Name = "standard approved order"
+        ProcessorName = "Generate standard approved order"
+        Content = '{"order_id":"2001","customer":"Alice","customer_tier":"standard","amount":800}'
+        ExpectedConnection = "approved"
+        ExpectedDecision = "approved"
         ExpectedReason = "accepted"
     }
     [PSCustomObject]@{
-        Name = "missing customer"
-        ProcessorName = "Generate missing customer order"
-        Content = '{"order_id":"1002","amount":80.00}'
-        ExpectedConnection = "failure"
-        ExpectedStatus = "invalid"
-        ExpectedReason = "customer.required"
+        Name = "vip approved order"
+        ProcessorName = "Generate vip approved order"
+        Content = '{"order_id":"2002","customer":"Bob","customer_tier":"vip","amount":4500}'
+        ExpectedConnection = "approved"
+        ExpectedDecision = "approved"
+        ExpectedReason = "accepted"
     }
     [PSCustomObject]@{
-        Name = "invalid amount"
-        ProcessorName = "Generate invalid amount order"
-        Content = '{"order_id":"1003","customer":"Carol","amount":0}'
+        Name = "standard manual review order"
+        ProcessorName = "Generate standard manual review order"
+        Content = '{"order_id":"2003","customer":"Carol","customer_tier":"standard","amount":1500}'
+        ExpectedConnection = "manual-review"
+        ExpectedDecision = "manual_review"
+        ExpectedReason = "tier.amount.review"
+    }
+    [PSCustomObject]@{
+        Name = "rejected high amount order"
+        ProcessorName = "Generate rejected high amount order"
+        Content = '{"order_id":"2004","customer":"Dora","customer_tier":"vip","amount":6000}'
+        ExpectedConnection = "rejected"
+        ExpectedDecision = "rejected"
+        ExpectedReason = "amount.limit"
+    }
+    [PSCustomObject]@{
+        Name = "missing tier order"
+        ProcessorName = "Generate missing tier order"
+        Content = '{"order_id":"2005","customer":"Eve","amount":100}'
         ExpectedConnection = "failure"
-        ExpectedStatus = "invalid"
-        ExpectedReason = "amount.positive"
+        ExpectedDecision = "error"
+        ExpectedReason = "customer_tier.required"
     }
 )
 
-function Invoke-ValidationCase {
+function Invoke-PolicyCase {
     param(
         [object]$Case,
         [object]$Context,
         [string]$SourceProcessorId,
         [string]$SourceConnectionId,
-        [string]$SuccessConnectionId,
-        [string]$FailureConnectionId,
-        [string]$ValidatorProcessorId
+        [hashtable]$OutputConnections,
+        [string]$PolicyProcessorId
     )
 
     Invoke-ProcessorOnce -Context $Context -ProcessorId $SourceProcessorId
     Wait-QueueHasFlowFile -Context $Context -ConnectionId $SourceConnectionId | Out-Null
-    Invoke-ProcessorOnce -Context $Context -ProcessorId $ValidatorProcessorId
+    Invoke-ProcessorOnce -Context $Context -ProcessorId $PolicyProcessorId
 
-    $expectedConnectionId = if ($Case.ExpectedConnection -eq "success") {
-        $SuccessConnectionId
-    } else {
-        $FailureConnectionId
-    }
+    $expectedConnectionId = $OutputConnections[$Case.ExpectedConnection]
     $summaries = @(Wait-QueueHasFlowFile -Context $Context -ConnectionId $expectedConnectionId)
     if ($summaries.Count -ne 1) {
-        throw "測試案例 '$($Case.Name)' 預期一筆 FlowFile，實際取得 $($summaries.Count) 筆。"
+        throw "政策案例 '$($Case.Name)' 預期一筆 FlowFile，實際取得 $($summaries.Count) 筆。"
     }
 
     $summary = $summaries[0]
     $flowFile = Get-FlowFileEntity -Context $Context -ConnectionId $expectedConnectionId -FlowFileId $summary.uuid
     $attributes = $flowFile.flowFile.attributes
-    if ($attributes.'training.validation.status' -ne $Case.ExpectedStatus) {
-        throw "測試案例 '$($Case.Name)' status 不符：$($attributes.'training.validation.status')"
+    if ($attributes.'training.policy.decision' -ne $Case.ExpectedDecision) {
+        throw "政策案例 '$($Case.Name)' decision 不符：$($attributes.'training.policy.decision')"
     }
-    if ($attributes.'training.validation.reason' -ne $Case.ExpectedReason) {
-        throw "測試案例 '$($Case.Name)' reason 不符：$($attributes.'training.validation.reason')"
+    if ($attributes.'training.policy.reason' -ne $Case.ExpectedReason) {
+        throw "政策案例 '$($Case.Name)' reason 不符：$($attributes.'training.policy.reason')"
     }
 
     $content = Get-FlowFileContent -Context $Context -ConnectionId $expectedConnectionId -FlowFileId $summary.uuid
     if ($content -ne $Case.Content) {
-        throw "測試案例 '$($Case.Name)' 的 FlowFile content 被意外修改：$content"
+        throw "政策案例 '$($Case.Name)' 的 FlowFile content 被意外修改：$content"
     }
 
     Drop-QueueFlowFiles -Context $Context -ConnectionId $expectedConnectionId
-    Write-Host "驗證通過：$($Case.Name) -> $($Case.ExpectedConnection) ($($Case.ExpectedReason))"
+    Write-Host "政策驗證通過：$($Case.Name) -> $($Case.ExpectedConnection) ($($Case.ExpectedReason))"
 }
 
 try {
@@ -151,11 +163,11 @@ try {
     $context.CreatedGroupId = $groupEntity.id
     Write-Host "已建立 Process Group：$GroupName ($($context.CreatedGroupId))"
 
-    $reader = New-ControllerService -Context $context -ParentGroupId $context.CreatedGroupId -Name "JSON order reader" `
+    $reader = New-ControllerService -Context $context -ParentGroupId $context.CreatedGroupId -Name "JSON policy reader" `
         -Type $readerType -Bundle $readerBundle
     Set-ControllerServiceProperties -Context $context -ControllerServiceId $reader.id -Properties @{
         "Schema Access Strategy" = "schema-text-property"
-        "Schema Text" = $orderSchema
+        "Schema Text" = $policySchema
     } | Out-Null
     Set-ControllerServiceState -Context $context -ControllerServiceId $reader.id -State "ENABLED"
     Wait-ControllerServiceState -Context $context -ControllerServiceId $reader.id -ExpectedState "ENABLED"
@@ -163,54 +175,67 @@ try {
 
     $standardGenerate = Get-ProcessorType -Context $context -Type "org.apache.nifi.processors.standard.GenerateFlowFile"
     $standardLog = Get-ProcessorType -Context $context -Type "org.apache.nifi.processors.standard.LogAttribute"
-    $validator = New-Processor -Context $context -ParentGroupId $context.CreatedGroupId -Name "Validate order JSON" `
-        -Type $processorType -Bundle $customBundle -PositionX 500 -PositionY 100
-    Set-ProcessorProperties -Context $context -ProcessorId $validator.id -Properties @{
+    $policyProcessor = New-Processor -Context $context -ParentGroupId $context.CreatedGroupId -Name "Apply order policy" `
+        -Type $processorType -Bundle $customBundle -PositionX 500 -PositionY 200
+    Set-ProcessorProperties -Context $context -ProcessorId $policyProcessor.id -Properties @{
         "Record Reader" = $reader.id
+        "Manual Review Threshold" = "1000"
+        "Reject Threshold" = "5000"
+        "VIP Customer Tier" = "vip"
     } | Out-Null
 
     $sourceProcessors = @{}
     $sourceConnections = @{}
-    $positionY = -200
-    foreach ($case in $validationCases) {
+    $positionY = -300
+    foreach ($case in $policyCases) {
         $source = New-Processor -Context $context -ParentGroupId $context.CreatedGroupId -Name $case.ProcessorName `
             -Type $standardGenerate.type -Bundle $standardGenerate.bundle -PositionX 0 -PositionY $positionY
         Set-ProcessorProperties -Context $context -ProcessorId $source.id -Properties @{
             "Data Format" = "Text"
             "Custom Text" = $case.Content
         } | Out-Null
-        $sourceConnection = New-Connection -Context $context -ParentGroupId $context.CreatedGroupId -Name "$($case.Name) to validator" `
-            -SourceId $source.id -DestinationId $validator.id -Relationships @("success")
+        $sourceConnection = New-Connection -Context $context -ParentGroupId $context.CreatedGroupId -Name "$($case.Name) to policy" `
+            -SourceId $source.id -DestinationId $policyProcessor.id -Relationships @("success")
         $sourceProcessors[$case.Name] = $source
         $sourceConnections[$case.Name] = $sourceConnection
-        $positionY += 200
+        $positionY += 170
     }
 
-    $successLog = New-Processor -Context $context -ParentGroupId $context.CreatedGroupId -Name "Log valid order" `
-        -Type $standardLog.type -Bundle $standardLog.bundle -PositionX 1000 -PositionY 0
-    $failureLog = New-Processor -Context $context -ParentGroupId $context.CreatedGroupId -Name "Log invalid order" `
+    $approvedLog = New-Processor -Context $context -ParentGroupId $context.CreatedGroupId -Name "Log approved order" `
+        -Type $standardLog.type -Bundle $standardLog.bundle -PositionX 1000 -PositionY -100
+    $manualReviewLog = New-Processor -Context $context -ParentGroupId $context.CreatedGroupId -Name "Log manual review order" `
+        -Type $standardLog.type -Bundle $standardLog.bundle -PositionX 1000 -PositionY 100
+    $rejectedLog = New-Processor -Context $context -ParentGroupId $context.CreatedGroupId -Name "Log rejected order" `
         -Type $standardLog.type -Bundle $standardLog.bundle -PositionX 1000 -PositionY 300
-    Set-AutoTerminate -Context $context -ProcessorId $successLog.id -Relationships @("success")
-    Set-AutoTerminate -Context $context -ProcessorId $failureLog.id -Relationships @("success")
+    $failureLog = New-Processor -Context $context -ParentGroupId $context.CreatedGroupId -Name "Log policy failure" `
+        -Type $standardLog.type -Bundle $standardLog.bundle -PositionX 1000 -PositionY 500
+    foreach ($log in @($approvedLog, $manualReviewLog, $rejectedLog, $failureLog)) {
+        Set-AutoTerminate -Context $context -ProcessorId $log.id -Relationships @("success")
+    }
 
-    $successConnection = New-Connection -Context $context -ParentGroupId $context.CreatedGroupId -Name "validator success" `
-        -SourceId $validator.id -DestinationId $successLog.id -Relationships @("success")
-    $failureConnection = New-Connection -Context $context -ParentGroupId $context.CreatedGroupId -Name "validator failure" `
-        -SourceId $validator.id -DestinationId $failureLog.id -Relationships @("failure")
-    Write-Host "已建立三個輸入案例、success/failure 分流與 LogAttribute 下游。"
+    $outputConnections = @{
+        "approved" = (New-Connection -Context $context -ParentGroupId $context.CreatedGroupId -Name "policy approved" `
+                -SourceId $policyProcessor.id -DestinationId $approvedLog.id -Relationships @("approved")).id
+        "manual-review" = (New-Connection -Context $context -ParentGroupId $context.CreatedGroupId -Name "policy manual review" `
+                -SourceId $policyProcessor.id -DestinationId $manualReviewLog.id -Relationships @("manual-review")).id
+        "rejected" = (New-Connection -Context $context -ParentGroupId $context.CreatedGroupId -Name "policy rejected" `
+                -SourceId $policyProcessor.id -DestinationId $rejectedLog.id -Relationships @("rejected")).id
+        "failure" = (New-Connection -Context $context -ParentGroupId $context.CreatedGroupId -Name "policy failure" `
+                -SourceId $policyProcessor.id -DestinationId $failureLog.id -Relationships @("failure")).id
+    }
+    Write-Host "已建立五個輸入案例、四條政策分流與 LogAttribute 下游。"
 
-    foreach ($case in $validationCases) {
-        Invoke-ValidationCase -Case $case `
+    foreach ($case in $policyCases) {
+        Invoke-PolicyCase -Case $case `
             -Context $context `
             -SourceProcessorId $sourceProcessors[$case.Name].id `
             -SourceConnectionId $sourceConnections[$case.Name].id `
-            -SuccessConnectionId $successConnection.id `
-            -FailureConnectionId $failureConnection.id `
-            -ValidatorProcessorId $validator.id
+            -OutputConnections $outputConnections `
+            -PolicyProcessorId $policyProcessor.id
     }
 
-    Write-Host "全部驗證成功：三種 JSON 訂單案例均已依預期分流。"
-    Write-Host "可在 NiFi UI 開啟 Process Group '$GroupName' 觀察 Controller Service、Processor 與 queue。"
+    Write-Host "全部政策驗證成功：五種 JSON 訂單案例均已依預期分流。"
+    Write-Host "可在 NiFi UI 開啟 Process Group '$GroupName' 觀察 Processor properties、relationships 與 queue。"
 } finally {
     if ($Cleanup -and $context.CreatedGroupId) {
         try {

@@ -90,12 +90,12 @@ Lab 11 的範例位於 `examples/nifi-custom-processor/`，以 REST API 完成 N
 ### 1. 上傳並等待 NAR 安裝
 
 ```powershell
-$narPath = ".\examples\nifi-custom-processor\nifi-training-custom-processor-nar\target\nifi-training-custom-processor-nar-2.0.0.nar"
+$narPath = ".\examples\nifi-custom-processor\nifi-training-custom-processor-nar\target\nifi-training-custom-processor-nar-2.1.0.nar"
 
 curl.exe -k -sS -X POST `
   -H "Authorization: Bearer $token" `
   -H "Content-Type: application/octet-stream" `
-  -H "filename: nifi-training-custom-processor-nar-2.0.0.nar" `
+  -H "filename: nifi-training-custom-processor-nar-2.1.0.nar" `
   --data-binary "@$narPath" `
   "https://localhost:8443/nifi-api/controller/nar-manager/nars/content"
 ```
@@ -118,9 +118,10 @@ GET /flow/processor-types
 
 ```text
 com.example.nifi.training.ValidateOrderJsonProcessor
+com.example.nifi.training.OrderPolicyProcessor
 ```
 
-同時讀取 response 的 `bundle.group`、`bundle.artifact` 與 `bundle.version`，再帶入建立 Processor 的 request。這能讓程式使用 NiFi 目前實際註冊的 bundle metadata，而不是依賴 UI 顯示文字或自行猜版本。
+同時讀取 response 的 `bundle.group`、`bundle.artifact` 與 `bundle.version`，再帶入建立 Processor 的 request。這能讓程式使用 NiFi 目前實際註冊的 bundle metadata，而不是依賴 UI 顯示文字或自行猜版本。若要建立政策流程，將 `type` 改為 `OrderPolicyProcessor`，並依 Lab 11 的 properties 與四條 relationship 建立對應 connection。
 
 ### 3. 建立 Processor 與 Connection
 
@@ -145,7 +146,7 @@ Processor body 的核心欄位：
     "bundle": {
       "group": "com.example.nifi.training",
       "artifact": "nifi-training-custom-processor-nar",
-      "version": "2.0.0"
+      "version": "2.1.0"
     },
     "position": {
       "x": 400.0,

@@ -43,6 +43,7 @@
 | 讀檔 | `GetFile` / `ListFile` + `FetchFile` | 讀取檔案來源 |
 | 寫檔 | `PutFile` | 將 FlowFile content 寫出檔案 |
 | 自訂處理 | `ValidateOrderJsonProcessor` | 以 Java SPI 驗證 JSON 訂單欄位並寫入 validation attributes |
+| 自訂政策 | `OrderPolicyProcessor` | 以跨欄位規則分流 approved、manual-review、rejected、failure |
 
 ## 常用 Controller Service
 
@@ -60,11 +61,11 @@
 | 元件 | 責任 | 本專案範例 |
 | --- | --- | --- |
 | `nifi-api` | Processor 執行時使用的公開 Java API | `AbstractProcessor`、`ProcessSession` |
-| `PropertyDescriptor` | 宣告 property、validator 與 allowable value | `Hash Algorithm`、`Output Attribute` |
-| `Relationship` | 宣告 FlowFile 的處理出口 | `success`、`failure` |
+| `PropertyDescriptor` | 宣告 property、validator 與 allowable value | `Record Reader`、`Manual Review Threshold` |
+| `Relationship` | 宣告 FlowFile 的處理出口 | `success`、`failure`、`approved`、`manual-review`、`rejected` |
 | ServiceLoader descriptor | 讓 NiFi 發現 Processor class | `META-INF/services/org.apache.nifi.processor.Processor` |
 | `nifi-mock` | 不啟動 NiFi 也能測試 Processor | `TestRunner`、`MockFlowFile` |
-| NAR | NiFi extension 的部署封裝 | `nifi-training-custom-processor-nar` |
+| NAR | NiFi extension 的部署封裝 | `nifi-training-custom-processor-nar-2.1.0.nar` |
 
 範例位置：
 
@@ -76,6 +77,14 @@ examples/nifi-custom-processor/
 
 ```powershell
 .\examples\nifi-custom-processor\build.ps1
+```
+
+建立第二個政策 Process Group：
+
+```powershell
+.\examples\nifi-custom-processor\scripts\setup-policy-flow.ps1 `
+  -SkipNarUpload `
+  -GroupName training-lab-11-order-policy
 ```
 
 REST-first 驗證順序：

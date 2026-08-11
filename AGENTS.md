@@ -34,6 +34,11 @@ node docs/nifi-training/mdx/build-training-html.mjs
 目前沒有正式測試框架或 coverage 門檻；至少應執行上述產生器，並在瀏覽器檢查
 `docs/nifi-training/index.html` 的目錄、搜尋、前後頁與課程內容。
 
+## Code Review
+
+本專案不需要 Code Review，任何變更都不啟動 reviewer 流程；仍須依變更類型完成適用的
+build、test 或文件驗證。
+
 ## 撰寫規範
 
 課程文件使用繁體中文與 Markdown，Lab 檔名遵循 `NN-topic.md`；系列課程使用

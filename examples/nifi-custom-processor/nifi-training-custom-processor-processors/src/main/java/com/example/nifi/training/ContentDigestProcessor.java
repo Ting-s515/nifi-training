@@ -45,8 +45,10 @@ import org.apache.nifi.processor.util.StandardValidators;
         @WritesAttribute(attribute = "content.digest", description = "The digest value written by default."),
         @WritesAttribute(attribute = "content.digest.failure.reason", description = "The exception type when digest calculation fails.")
 })
+// These annotations define the runtime contract that NiFi validates and exposes before execution.
 public class ContentDigestProcessor extends AbstractProcessor {
 
+    // Restrict the algorithms at the property boundary so unsupported values fail validation before processing.
     public static final AllowableValue SHA_256 = new AllowableValue(
             "SHA-256", "SHA-256", "SHA-256 produces a 256-bit digest.");
     public static final AllowableValue SHA_512 = new AllowableValue(
@@ -70,6 +72,7 @@ public class ContentDigestProcessor extends AbstractProcessor {
             .addValidator(StandardValidators.NON_EMPTY_VALIDATOR)
             .build();
 
+    // Keep both outcomes routable so a flow can handle successful and failed processing explicitly.
     public static final Relationship REL_SUCCESS = new Relationship.Builder()
             .name("success")
             .description("FlowFiles whose content was hashed successfully.")
@@ -87,6 +90,7 @@ public class ContentDigestProcessor extends AbstractProcessor {
 
     @Override
     protected void init(final ProcessorInitializationContext context) {
+        // NiFi reads these collections during initialization to build the component contract before scheduling it.
         descriptors = List.of(HASH_ALGORITHM, OUTPUT_ATTRIBUTE);
         relationships = Set.of(REL_SUCCESS, REL_FAILURE);
     }
@@ -105,6 +109,7 @@ public class ContentDigestProcessor extends AbstractProcessor {
     public void onTrigger(final ProcessContext context, final ProcessSession session) throws ProcessException {
         FlowFile flowFile = session.get();
         if (flowFile == null) {
+            // An invocation can find an empty input queue, so there is no FlowFile to process or transfer.
             return;
         }
 
@@ -113,6 +118,7 @@ public class ContentDigestProcessor extends AbstractProcessor {
 
         try {
             final MessageDigest messageDigest = createMessageDigest(algorithm);
+            // Process content through NiFi's session in chunks to keep memory usage bounded for large FlowFiles.
             session.read(flowFile, input -> {
                 final byte[] buffer = new byte[8192];
                 int bytesRead;
@@ -124,17 +130,21 @@ public class ContentDigestProcessor extends AbstractProcessor {
             });
 
             final String digest = HexFormat.of().formatHex(messageDigest.digest());
+            // Store the result as metadata and retain the original content for downstream processors.
             flowFile = session.putAttribute(flowFile, outputAttribute, digest);
             session.transfer(flowFile, REL_SUCCESS);
         } catch (final NoSuchAlgorithmException exception) {
             getLogger().error("Unable to calculate the FlowFile content digest", exception);
+            // Penalize the FlowFile to avoid immediate repeated failures when the cause is retryable.
             session.penalize(flowFile);
+            // Preserve a machine-readable reason so failure handling does not need to parse logs.
             flowFile = session.putAttribute(flowFile, FAILURE_REASON_ATTRIBUTE,
                     exception.getClass().getSimpleName());
             session.transfer(flowFile, REL_FAILURE);
         }
     }
 
+    // Keep the digest factory overridable so tests can exercise failure routing without changing runtime behavior.
     protected MessageDigest createMessageDigest(final String algorithm) throws NoSuchAlgorithmException {
         return MessageDigest.getInstance(algorithm);
     }

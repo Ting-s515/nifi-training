@@ -232,32 +232,43 @@ function Wait-NarInstallation {
 }
 
 function Wait-QueueHasFlowFile {
-    param([string]$ConnectionId)
+    param(
+        [string]$ConnectionId,
+        [int]$TimeoutSeconds = 60
+    )
 
-    $listingEntity = Invoke-NifiJson -Method "POST" -Path "/flowfile-queues/$ConnectionId/listing-requests"
-    $listingId = $listingEntity.listingRequest.id
-    if ([string]::IsNullOrWhiteSpace($listingId)) {
-        throw "Queue listing response 沒有 request id。"
-    }
-
-    for ($attempt = 1; $attempt -le 15; $attempt++) {
-        $listingEntity = Invoke-NifiJson -Method "GET" `
-            -Path "/flowfile-queues/$ConnectionId/listing-requests/$listingId"
-        $listingRequest = $listingEntity.listingRequest
-        if ($listingRequest.finished -eq $true) {
-            if ($listingRequest.failureReason) {
-                throw "Queue listing 失敗：$($listingRequest.failureReason)"
-            }
-            $summaries = @($listingRequest.flowFileSummaries)
-            if ($summaries.Count -gt 0) {
-                return $summaries
-            }
-            throw "Queue 沒有 FlowFile。"
+    $deadline = [DateTime]::UtcNow.AddSeconds($TimeoutSeconds)
+    while ([DateTime]::UtcNow -lt $deadline) {
+        $listingEntity = Invoke-NifiJson -Method "POST" `
+            -Path "/flowfile-queues/$ConnectionId/listing-requests"
+        $listingId = $listingEntity.listingRequest.id
+        if ([string]::IsNullOrWhiteSpace($listingId)) {
+            throw "Queue listing response 沒有 request id。"
         }
-        Start-Sleep -Seconds 1
+
+        while ([DateTime]::UtcNow -lt $deadline) {
+            $listingEntity = Invoke-NifiJson -Method "GET" `
+                -Path "/flowfile-queues/$ConnectionId/listing-requests/$listingId"
+            $listingRequest = $listingEntity.listingRequest
+            if ($listingRequest.finished -eq $true) {
+                if ($listingRequest.failureReason) {
+                    throw "Queue listing 失敗：$($listingRequest.failureReason)"
+                }
+                $summaries = @($listingRequest.flowFileSummaries)
+                if ($summaries.Count -gt 0) {
+                    return $summaries
+                }
+                break
+            }
+            Start-Sleep -Seconds 1
+        }
+
+        if ([DateTime]::UtcNow -lt $deadline) {
+            Start-Sleep -Seconds 1
+        }
     }
 
-    throw "等待 Queue FlowFile 逾時。"
+    throw "等待 Queue FlowFile 逾時（$TimeoutSeconds 秒）。"
 }
 
 function Get-FlowFileAttributes {
@@ -268,6 +279,32 @@ function Get-FlowFileAttributes {
 
     $entity = Invoke-NifiJson -Method "GET" -Path "/flowfile-queues/$ConnectionId/flowfiles/$FlowFileId"
     return $entity.flowFile.attributes
+}
+
+function Drop-QueueFlowFiles {
+    param([string]$ConnectionId)
+
+    $dropEntity = Invoke-NifiJson -Method "POST" `
+        -Path "/flowfile-queues/$ConnectionId/drop-requests"
+    $dropId = $dropEntity.dropRequest.id
+    if ([string]::IsNullOrWhiteSpace($dropId)) {
+        throw "Drop request response 沒有 request id。"
+    }
+
+    for ($attempt = 1; $attempt -le 30; $attempt++) {
+        $dropEntity = Invoke-NifiJson -Method "GET" `
+            -Path "/flowfile-queues/$ConnectionId/drop-requests/$dropId"
+        $dropRequest = $dropEntity.dropRequest
+        if ($dropRequest.finished -eq $true) {
+            if ($dropRequest.failureReason) {
+                throw "Queue 清除失敗：$($dropRequest.failureReason)"
+            }
+            return
+        }
+        Start-Sleep -Seconds 1
+    }
+
+    throw "等待 Queue 清除逾時。"
 }
 
 try {
@@ -403,9 +440,18 @@ try {
             foreach ($processorId in $createdProcessorIds) {
                 Stop-Processor -ProcessorId $processorId
             }
+            $flow = Invoke-NifiJson -Method "GET" `
+                -Path "/flow/process-groups/$createdGroupId"
+            foreach ($connection in @($flow.processGroupFlow.flow.connections)) {
+                $queued = $connection.status.aggregateSnapshot.flowFilesQueued
+                if ($queued -gt 0) {
+                    Drop-QueueFlowFiles -ConnectionId $connection.component.id
+                }
+            }
+
             $group = Invoke-NifiJson -Method "GET" -Path "/process-groups/$createdGroupId"
             $version = $group.revision.version
-            $deletePath = "/process-groups/$createdGroupId?version=$version&clientId=$clientId"
+            $deletePath = "/process-groups/${createdGroupId}?version=${version}&clientId=${clientId}"
             Invoke-NifiJson -Method "DELETE" -Path $deletePath | Out-Null
             Write-Host "已刪除 Process Group：$createdGroupId"
         } catch {

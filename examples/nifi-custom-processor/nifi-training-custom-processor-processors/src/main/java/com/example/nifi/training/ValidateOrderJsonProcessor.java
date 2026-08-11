@@ -42,6 +42,10 @@ import org.apache.nifi.serialization.RecordReader;
 import org.apache.nifi.serialization.RecordReaderFactory;
 import org.apache.nifi.serialization.record.Record;
 
+/**
+ * Why：NiFi 內建元件無法直接把訂單必要欄位、數值規則與穩定 reason code 組成同一個可部署
+ * contract，因此以客製化 Processor 集中驗證並用 success/failure 交給下游處理。
+ */
 @Tags({"training", "json", "record", "validation"})
 @CapabilityDescription("Validates required fields in one JSON order record and routes the FlowFile by validation result.")
 @InputRequirement(InputRequirement.Requirement.INPUT_REQUIRED)

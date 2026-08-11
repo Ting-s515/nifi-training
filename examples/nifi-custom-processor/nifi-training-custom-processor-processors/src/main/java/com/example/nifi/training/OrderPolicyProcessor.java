@@ -46,6 +46,10 @@ import org.apache.nifi.serialization.RecordReader;
 import org.apache.nifi.serialization.RecordReaderFactory;
 import org.apache.nifi.serialization.record.Record;
 
+/**
+ * Why：NiFi 內建元件無法直接表達 customer tier 與 amount 的跨欄位公司政策並輸出穩定
+ * decision/reason code，因此以可配置門檻的客製化 Processor 集中決策與分流。
+ */
 @Tags({"training", "json", "record", "policy"})
 @CapabilityDescription("Applies a configurable company order policy and routes each JSON order by its business decision.")
 @InputRequirement(InputRequirement.Requirement.INPUT_REQUIRED)

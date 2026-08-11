@@ -221,6 +221,16 @@ docker compose ps
 </code></pre>
 <p>請在 <code>.env</code> 填入本機使用的 <code>NIFI_USERNAME</code> 與 <code>NIFI_PASSWORD</code>。<code>.env</code> 只保留在本機，
 不要提交實際帳密。</p>
+<p><code>NIFI_PASSWORD</code> 必須至少 12 個字元；例如 <code>theon</code> 可以作為 username，但不能直接作為
+password。密碼過短時，NiFi 會在容器 log 顯示：</p>
+<pre><code class="language-text">ERROR: Password must be at least 12 characters
+</code></pre>
+<p>此時 NiFi 會改用隨機帳密完成啟動，<code>.env</code> 中的帳密不會生效。若修改已啟動環境的
+<code>.env</code>，請重建 <code>nifi</code> container，無須重新建置 image：</p>
+<pre><code class="language-powershell">docker compose up -d --force-recreate nifi
+</code></pre>
+<p>只執行 <code>docker compose restart</code> 不會以新的 Compose 環境變數重建 container；也不要為了
+修改帳密使用 <code>docker compose down -v</code>，因為這會刪除 NiFi 的練習 volumes。</p>
 <p>後續若容器已建立，只要重新啟動環境，可執行：</p>
 <pre><code class="language-powershell">docker compose up -d
 docker compose ps
@@ -5442,7 +5452,11 @@ SELECT * FROM FLOWFILE WHERE "order_id" = '1003'
 <pre><code class="language-powershell">docker compose up -d
 docker compose ps
 </code></pre>
-<p>根目錄 <code>.env</code> 只保留在本機。腳本會讀取 <code>NIFI_USERNAME</code> 與 <code>NIFI_PASSWORD</code>，不會把密碼寫入文件或 commit。</p>
+<p>根目錄 <code>.env</code> 只保留在本機。腳本會讀取 <code>NIFI_USERNAME</code> 與 <code>NIFI_PASSWORD</code>，不會把密碼寫入文件或 commit。
+<code>NIFI_PASSWORD</code> 必須至少 12 個字元。若密碼過短，NiFi 會在 log 顯示
+<code>ERROR: Password must be at least 12 characters</code>，並改用隨機帳密啟動。修改已啟動環境的
+<code>.env</code> 後，請執行 <code>docker compose up -d --force-recreate nifi</code>；這只重建 container，
+不需要重新建置 <code>nifi-sample</code> image，也不要使用 <code>docker compose down -v</code> 清除練習 volumes。</p>
 <h3 id="doc-11-00-custom-processor-spi-3fd4f126--容器啟動後的初始化順序">容器啟動後的初始化順序</h3>
 <p><code>docker compose ps</code> 顯示 <code>nifi-service</code> 為 <code>Up</code>，代表 NiFi runtime 已啟動；課程的
 custom Processor 仍在 repository 的 Java 原始碼中，尚未載入 NiFi。Lab 11 的初始化有

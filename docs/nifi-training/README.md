@@ -52,6 +52,23 @@ docker compose ps
 請在 `.env` 填入本機使用的 `NIFI_USERNAME` 與 `NIFI_PASSWORD`。`.env` 只保留在本機，
 不要提交實際帳密。
 
+`NIFI_PASSWORD` 必須至少 12 個字元；例如 `theon` 可以作為 username，但不能直接作為
+password。密碼過短時，NiFi 會在容器 log 顯示：
+
+```text
+ERROR: Password must be at least 12 characters
+```
+
+此時 NiFi 會改用隨機帳密完成啟動，`.env` 中的帳密不會生效。若修改已啟動環境的
+`.env`，請重建 `nifi` container，無須重新建置 image：
+
+```powershell
+docker compose up -d --force-recreate nifi
+```
+
+只執行 `docker compose restart` 不會以新的 Compose 環境變數重建 container；也不要為了
+修改帳密使用 `docker compose down -v`，因為這會刪除 NiFi 的練習 volumes。
+
 後續若容器已建立，只要重新啟動環境，可執行：
 
 ```powershell

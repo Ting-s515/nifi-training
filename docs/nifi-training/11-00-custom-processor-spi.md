@@ -45,6 +45,10 @@ docker compose ps
 ```
 
 根目錄 `.env` 只保留在本機。腳本會讀取 `NIFI_USERNAME` 與 `NIFI_PASSWORD`，不會把密碼寫入文件或 commit。
+`NIFI_PASSWORD` 必須至少 12 個字元。若密碼過短，NiFi 會在 log 顯示
+`ERROR: Password must be at least 12 characters`，並改用隨機帳密啟動。修改已啟動環境的
+`.env` 後，請執行 `docker compose up -d --force-recreate nifi`；這只重建 container，
+不需要重新建置 `nifi-sample` image，也不要使用 `docker compose down -v` 清除練習 volumes。
 
 ### 容器啟動後的初始化順序
 

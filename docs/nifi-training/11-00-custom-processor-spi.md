@@ -24,6 +24,54 @@ flowchart LR
 - 一個由 REST API 建立的獨立 Process Group，不需要手動拖曳元件。
 - success queue 中帶有 `content.digest` 的 FlowFile；content 本身仍未被改寫。
 
+## 先認識 SPI 是什麼
+
+SPI 是 `Service Provider Interface` 的縮寫，可以理解成「服務提供者介面」。它是由主程式
+定義的擴充契約：主程式先規定外部實作要提供的介面、生命週期與資料交換方式，外部元件
+依照契約實作後，主程式在執行時發現、載入並呼叫它。
+
+API 與 SPI 的責任方向不同：
+
+| 概念 | 誰定義 | 誰使用或實作 | 在本 Lab 的例子 |
+| --- | --- | --- | --- |
+| API | 提供功能的程式或框架 | 使用者端呼叫 | `ProcessSession`、NiFi REST API |
+| SPI | 主程式或框架 | 外部提供者實作 | `Processor` 的公開 Java 契約 |
+
+SPI 不是單一 Java class、REST endpoint 或 UI 功能。在 NiFi 中，它是「公開 Java API 加上
+實作發現與部署規則」的擴充邊界：
+
+```text
+NiFi runtime（主程式）
+    │ 定義與提供
+    ▼
+nifi-api 的 Processor 契約
+    │ 實作
+    ▼
+ContentDigestProcessor（服務提供者）
+    │ ServiceLoader descriptor 宣告 class
+    ▼
+Processor JAR 放入 NAR（部署封裝）
+    │ NiFi 發現、載入、驗證並執行
+    ▼
+Flow 中可選取的 Processor type
+```
+
+這五個角色各自負責不同事情：
+
+- `NiFi runtime` 是主程式，負責管理 Flow、載入 extension，並在 Flow 執行時呼叫 Processor。
+- `nifi-api` 是公開契約，定義 `Processor`、`ProcessSession`、`ProcessContext` 等型別與
+  可使用的操作邊界。
+- `ContentDigestProcessor` 是服務提供者，負責把公司的處理規則實作成符合契約的 Java class。
+- `META-INF/services/org.apache.nifi.processor.Processor` 是 Java ServiceLoader 的發現資訊，
+  讓 NiFi 知道 NAR 中有哪些 Processor class。
+- NAR 是 NiFi 的部署封裝，負責帶著 Processor JAR 與相依關係進入 NiFi 的 extension
+  classloader。
+
+因此，只有把 Java class 編譯成一般 JAR，還不能代表 NiFi 已經有可使用的 Processor。這個
+Lab 會依序完成「實作契約、註冊提供者、封裝 NAR、部署到 NiFi、建立 Flow 並執行驗證」，
+讓你看見 SPI 從程式碼到 runtime 的完整生命週期。公司專案要擴充 NiFi 時，也應先確認
+使用的是公開 API 與公開部署契約，再決定要加入 Controller Service、state 或其他 extension。
+
 ## 開始前先知道
 
 ### 需要的環境

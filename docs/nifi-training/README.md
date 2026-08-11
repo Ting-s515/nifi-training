@@ -19,7 +19,7 @@
 - 每個 Lab 結尾要回顧整條 flow 在做什麼，避免只照步驟完成卻不知道流程意義。
 - 每個 Step 都要用「新手是否能從上一個 Step 的狀態直接照做」來檢查；若前一步留下的設定會影響下一步，必須明確寫出要保留、修改或刪除哪些設定。
 - NiFi UI 若提供多個獨立 property，就依照 property 語意分開填，不要把外部工具或 SQL 慣用的完整字串硬塞進單一欄位。例如 MSSQL 在 `PutDatabaseRecord` 要分開填 `Database Name`、`Schema Name`、`Table Name`，不要把 `dbo.table_name` 全部填到 `Table Name`。
-- 需要擴充 NiFi SPI 時，優先使用 `nifi-api`、`nifi-mock`、ServiceLoader 與 NAR 公開契約；REST 操作以目前版本 Swagger 驗證，避免依賴 UI 內部實作。
+- Lab 11 會先建立 SPI 的主程式、契約、提供者、發現與部署模型，再實作 custom Processor；需要擴充 NiFi SPI 時，優先使用 `nifi-api`、`nifi-mock`、ServiceLoader 與 NAR 公開契約，REST 操作以目前版本 Swagger 驗證，避免依賴 UI 內部實作。
 - 補充文檔只用來釐清容易誤解的概念，不取代 Lab 的實作主線。
 
 課程檔名規則：

@@ -192,7 +192,7 @@
 <li>每個 Lab 結尾要回顧整條 flow 在做什麼，避免只照步驟完成卻不知道流程意義。</li>
 <li>每個 Step 都要用「新手是否能從上一個 Step 的狀態直接照做」來檢查；若前一步留下的設定會影響下一步，必須明確寫出要保留、修改或刪除哪些設定。</li>
 <li>NiFi UI 若提供多個獨立 property，就依照 property 語意分開填，不要把外部工具或 SQL 慣用的完整字串硬塞進單一欄位。例如 MSSQL 在 <code>PutDatabaseRecord</code> 要分開填 <code>Database Name</code>、<code>Schema Name</code>、<code>Table Name</code>，不要把 <code>dbo.table_name</code> 全部填到 <code>Table Name</code>。</li>
-<li>需要擴充 NiFi SPI 時，優先使用 <code>nifi-api</code>、<code>nifi-mock</code>、ServiceLoader 與 NAR 公開契約；REST 操作以目前版本 Swagger 驗證，避免依賴 UI 內部實作。</li>
+<li>Lab 11 會先建立 SPI 的主程式、契約、提供者、發現與部署模型，再實作 custom Processor；需要擴充 NiFi SPI 時，優先使用 <code>nifi-api</code>、<code>nifi-mock</code>、ServiceLoader 與 NAR 公開契約，REST 操作以目前版本 Swagger 驗證，避免依賴 UI 內部實作。</li>
 <li>補充文檔只用來釐清容易誤解的概念，不取代 Lab 的實作主線。</li>
 </ul>
 <p>課程檔名規則：</p>
@@ -5414,6 +5414,66 @@ SELECT * FROM FLOWFILE WHERE "order_id" = '1003'
 <li>一個由 REST API 建立的獨立 Process Group，不需要手動拖曳元件。</li>
 <li>success queue 中帶有 <code>content.digest</code> 的 FlowFile；content 本身仍未被改寫。</li>
 </ul>
+<h2 id="doc-11-00-custom-processor-spi-3fd4f126--先認識-spi-是什麼">先認識 SPI 是什麼</h2>
+<p>SPI 是 <code>Service Provider Interface</code> 的縮寫，可以理解成「服務提供者介面」。它是由主程式
+定義的擴充契約：主程式先規定外部實作要提供的介面、生命週期與資料交換方式，外部元件
+依照契約實作後，主程式在執行時發現、載入並呼叫它。</p>
+<p>API 與 SPI 的責任方向不同：</p>
+<table>
+<thead>
+<tr>
+<th>概念</th>
+<th>誰定義</th>
+<th>誰使用或實作</th>
+<th>在本 Lab 的例子</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>API</td>
+<td>提供功能的程式或框架</td>
+<td>使用者端呼叫</td>
+<td><code>ProcessSession</code>、NiFi REST API</td>
+</tr>
+<tr>
+<td>SPI</td>
+<td>主程式或框架</td>
+<td>外部提供者實作</td>
+<td><code>Processor</code> 的公開 Java 契約</td>
+</tr>
+</tbody>
+</table>
+<p>SPI 不是單一 Java class、REST endpoint 或 UI 功能。在 NiFi 中，它是「公開 Java API 加上
+實作發現與部署規則」的擴充邊界：</p>
+<pre><code class="language-text">NiFi runtime（主程式）
+    │ 定義與提供
+    ▼
+nifi-api 的 Processor 契約
+    │ 實作
+    ▼
+ContentDigestProcessor（服務提供者）
+    │ ServiceLoader descriptor 宣告 class
+    ▼
+Processor JAR 放入 NAR（部署封裝）
+    │ NiFi 發現、載入、驗證並執行
+    ▼
+Flow 中可選取的 Processor type
+</code></pre>
+<p>這五個角色各自負責不同事情：</p>
+<ul>
+<li><code>NiFi runtime</code> 是主程式，負責管理 Flow、載入 extension，並在 Flow 執行時呼叫 Processor。</li>
+<li><code>nifi-api</code> 是公開契約，定義 <code>Processor</code>、<code>ProcessSession</code>、<code>ProcessContext</code> 等型別與
+可使用的操作邊界。</li>
+<li><code>ContentDigestProcessor</code> 是服務提供者，負責把公司的處理規則實作成符合契約的 Java class。</li>
+<li><code>META-INF/services/org.apache.nifi.processor.Processor</code> 是 Java ServiceLoader 的發現資訊，
+讓 NiFi 知道 NAR 中有哪些 Processor class。</li>
+<li>NAR 是 NiFi 的部署封裝，負責帶著 Processor JAR 與相依關係進入 NiFi 的 extension
+classloader。</li>
+</ul>
+<p>因此，只有把 Java class 編譯成一般 JAR，還不能代表 NiFi 已經有可使用的 Processor。這個
+Lab 會依序完成「實作契約、註冊提供者、封裝 NAR、部署到 NiFi、建立 Flow 並執行驗證」，
+讓你看見 SPI 從程式碼到 runtime 的完整生命週期。公司專案要擴充 NiFi 時，也應先確認
+使用的是公開 API 與公開部署契約，再決定要加入 Controller Service、state 或其他 extension。</p>
 <h2 id="doc-11-00-custom-processor-spi-3fd4f126--開始前先知道">開始前先知道</h2>
 <h3 id="doc-11-00-custom-processor-spi-3fd4f126--需要的環境">需要的環境</h3>
 <p>所有命令都從 repository 根目錄執行，或依命令提示切換到範例目錄：</p>

@@ -80,7 +80,7 @@ public class ValidateOrderJsonProcessor extends AbstractProcessor {
 
     @Override
     protected void init(final ProcessorInitializationContext context) {
-        // NiFi reads these collections during initialization to expose the component contract before scheduling it.
+        // NiFi 會在排程前讀取這兩組 contract；在初始化時建立不可變集合，避免執行期間被意外修改。
         descriptors = List.of(RECORD_READER);
         relationships = Set.of(REL_SUCCESS, REL_FAILURE);
     }
@@ -99,7 +99,7 @@ public class ValidateOrderJsonProcessor extends AbstractProcessor {
     public void onTrigger(final ProcessContext context, final ProcessSession session) throws ProcessException {
         FlowFile flowFile = session.get();
         if (flowFile == null) {
-            // An empty input queue is a normal scheduling result and does not represent a validation failure.
+            // 空 queue 只是本次排程沒有資料，不應製造一個沒有來源的 failure FlowFile。
             return;
         }
 
@@ -107,14 +107,17 @@ public class ValidateOrderJsonProcessor extends AbstractProcessor {
         try {
             result = validateOrder(context, session, flowFile);
         } catch (final IOException | MalformedRecordException | SchemaNotFoundException exception) {
+            // Reader 或 schema 錯誤仍屬於輸入處理結果；轉成穩定 reason code，讓下游可以記錄或送往 dead-letter。
             getLogger().error("Unable to read the JSON order record", exception);
             result = ValidationResult.error("record-reader.error");
         }
 
+        // 將結果放在 FlowFile contract 中，讓下游只讀 attributes 就能分流或告警，不必解析 log 文字。
         flowFile = session.putAllAttributes(flowFile, Map.of(
                 STATUS_ATTRIBUTE, result.status(),
                 REASON_ATTRIBUTE, result.reason()));
 
+        // 明確處理兩個 relationship，避免 validation 結果留在 session 中，也保留 failure 的可觀察性。
         if (result.valid()) {
             session.transfer(flowFile, REL_SUCCESS);
         } else {
@@ -127,18 +130,22 @@ public class ValidateOrderJsonProcessor extends AbstractProcessor {
             final ProcessSession session,
             final FlowFile flowFile
     ) throws IOException, MalformedRecordException, SchemaNotFoundException {
+        // Processor 只依賴 RecordReaderFactory，格式與 schema 交由 Controller Service 配置，避免業務邏輯綁定 JSON library。
         final RecordReaderFactory readerFactory = context.getProperty(RECORD_READER)
                 .asControllerService(RecordReaderFactory.class);
 
         try (InputStream input = session.read(flowFile);
              RecordReader reader = readerFactory.createRecordReader(flowFile, input, getLogger())) {
+            // 同時關閉 FlowFile stream 與 reader，避免長時間或高併發處理時累積資源。
             final Record record = reader.nextRecord();
             if (record == null) {
+                // 本課程定義一個 FlowFile 代表一筆訂單；沒有 record 時不能假設它是合法空訂單。
                 return ValidationResult.invalid("record.required");
             }
 
             final List<String> errors = collectValidationErrors(record);
             if (reader.nextRecord() != null) {
+                // 只驗證第一筆會靜默遺失同一 FlowFile 的其他訂單，因此明確拒絕多筆輸入。
                 errors.add("record.count");
             }
             if (!errors.isEmpty()) {
@@ -149,6 +156,7 @@ public class ValidateOrderJsonProcessor extends AbstractProcessor {
     }
 
     private List<String> collectValidationErrors(final Record record) {
+        // 固定欄位驗證順序，讓 reason code 可預期，方便測試、告警與下游重試規則穩定比對。
         final List<String> errors = new ArrayList<>();
         validateTextField(record, ORDER_ID_FIELD, errors);
         validateTextField(record, CUSTOMER_FIELD, errors);
@@ -157,6 +165,7 @@ public class ValidateOrderJsonProcessor extends AbstractProcessor {
     }
 
     private void validateTextField(final Record record, final String fieldName, final List<String> errors) {
+        // 將缺少與空白分開，因為兩者通常需要不同的資料修正或告警處理。
         final String value = record.getAsString(fieldName);
         if (value == null) {
             errors.add(fieldName + ".required");
@@ -166,6 +175,7 @@ public class ValidateOrderJsonProcessor extends AbstractProcessor {
     }
 
     private void validateAmount(final Record record, final List<String> errors) {
+        // 先檢查原始型別，避免把 JSON 文字內容悄悄轉成金額而掩蓋上游 schema 問題。
         final Object value = record.getValue(AMOUNT_FIELD);
         if (value == null) {
             errors.add(AMOUNT_FIELD + ".required");
@@ -178,12 +188,14 @@ public class ValidateOrderJsonProcessor extends AbstractProcessor {
 
         final double amount = number.doubleValue();
         if (!Double.isFinite(amount)) {
+            // NaN 不會小於等於零，若只檢查 amount <= 0 會讓非有限數值錯誤地通過。
             errors.add(AMOUNT_FIELD + ".numeric");
         } else if (amount <= 0) {
             errors.add(AMOUNT_FIELD + ".positive");
         }
     }
 
+    // 將狀態、可讀原因與路由結果集中保存，避免 onTrigger 在不同錯誤分支重複組裝結果。
     private record ValidationResult(String status, String reason, boolean valid) {
 
         private static ValidationResult accepted() {

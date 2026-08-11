@@ -270,8 +270,13 @@ success/failure <code>LogAttribute</code>，最後以 Queue 與 FlowFile API 驗
   -GroupName training-lab-11-order-policy-rerun
 </code></pre>
 <p>如果原本已存在同名的課程 Process Group，要讓腳本先停止、清空、刪除舊群組，再建立同名
-的新群組，使用明確的替換參數：</p>
+的新群組，且 NAR 已經安裝時，使用以下完整指令：</p>
 <pre><code class="language-powershell">.\examples\nifi-custom-processor\scripts\setup-flow.ps1 `
+  -SkipNarUpload `
+  -ReplaceExisting
+
+.\examples\nifi-custom-processor\scripts\setup-policy-flow.ps1 `
+  -SkipNarUpload `
   -ReplaceExisting
 </code></pre>
 <p>腳本預設保留 Process Group、但會清掉已驗證的測試 queue；若要刪除本次建立的整個
@@ -6018,6 +6023,26 @@ examples/nifi-custom-processor/scripts/setup-policy-flow.ps1
 <p>兩支腳本使用公開 REST API 完成各自 Process Group 的初始化，不需要手動拖曳元件。
 共用的 <code>nifi-flow-helper.ps1</code> 會先讀取目前 entity 的 <code>revision</code>，再送出 <code>PUT</code>；不要把
 這個 revision 當成可以永久寫死的版本號。</p>
+<h3 id="doc-11-00-custom-processor-spi-3fd4f126--part-4-的實際執行順序">Part 4 的實際執行順序</h3>
+<p>完成 Part 3 的 NAR 建置後，從 repository 根目錄執行。第一次部署時，第一支腳本會上傳
+並等待 <code>2.1.0</code> NAR 安裝完成；第二支腳本沿用同一個 NAR，因此使用 <code>-SkipNarUpload</code>：</p>
+<pre><code class="language-powershell">.\examples\nifi-custom-processor\scripts\setup-flow.ps1
+.\examples\nifi-custom-processor\scripts\setup-policy-flow.ps1 -SkipNarUpload
+</code></pre>
+<p>如果先前已執行過課程流程，且 root 下已存在同名 Process Group，重新練習時要同時使用
+<code>-SkipNarUpload</code> 與 <code>-ReplaceExisting</code>：</p>
+<pre><code class="language-powershell">.\examples\nifi-custom-processor\scripts\setup-flow.ps1 `
+  -SkipNarUpload `
+  -ReplaceExisting
+
+.\examples\nifi-custom-processor\scripts\setup-policy-flow.ps1 `
+  -SkipNarUpload `
+  -ReplaceExisting
+</code></pre>
+<p>兩個參數的責任不同：<code>-SkipNarUpload</code> 只略過已完成的 NAR 上傳；<code>-ReplaceExisting</code> 會依
+同名 Process Group 取得 ID，停止 Processor、清空 Queue、停用 Controller Service、刪除
+舊群組，再建立新的同名群組。它不會刪除 NAR。兩支腳本請分開執行；第一支發生錯誤時，
+先處理錯誤再執行第二支。</p>
 <h3 id="doc-11-00-custom-processor-spi-3fd4f126--step-1取得-token上傳與等待-nar">Step 1：取得 token、上傳與等待 NAR</h3>
 <p>流程依序使用：</p>
 <pre><code class="language-text">POST /access/token

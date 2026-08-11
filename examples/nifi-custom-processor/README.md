@@ -113,6 +113,11 @@ queue 與 bulletin。若 NAR 已經安裝，可略過上傳並使用新的 group
 
 ```powershell
 .\examples\nifi-custom-processor\scripts\setup-flow.ps1 `
+  -SkipNarUpload `
+  -ReplaceExisting
+
+.\examples\nifi-custom-processor\scripts\setup-policy-flow.ps1 `
+  -SkipNarUpload `
   -ReplaceExisting
 ```
 

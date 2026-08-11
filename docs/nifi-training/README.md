@@ -122,10 +122,15 @@ NAR 已安裝後，可以略過上傳並指定新的 Process Group 名稱：
 ```
 
 如果原本已存在同名的課程 Process Group，要讓腳本先停止、清空、刪除舊群組，再建立同名
-的新群組，使用明確的替換參數：
+的新群組，且 NAR 已經安裝時，使用以下完整指令：
 
 ```powershell
 .\examples\nifi-custom-processor\scripts\setup-flow.ps1 `
+  -SkipNarUpload `
+  -ReplaceExisting
+
+.\examples\nifi-custom-processor\scripts\setup-policy-flow.ps1 `
+  -SkipNarUpload `
   -ReplaceExisting
 ```
 

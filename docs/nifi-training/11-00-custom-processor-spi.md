@@ -455,6 +455,34 @@ examples/nifi-custom-processor/scripts/setup-policy-flow.ps1
 共用的 `nifi-flow-helper.ps1` 會先讀取目前 entity 的 `revision`，再送出 `PUT`；不要把
 這個 revision 當成可以永久寫死的版本號。
 
+### Part 4 的實際執行順序
+
+完成 Part 3 的 NAR 建置後，從 repository 根目錄執行。第一次部署時，第一支腳本會上傳
+並等待 `2.1.0` NAR 安裝完成；第二支腳本沿用同一個 NAR，因此使用 `-SkipNarUpload`：
+
+```powershell
+.\examples\nifi-custom-processor\scripts\setup-flow.ps1
+.\examples\nifi-custom-processor\scripts\setup-policy-flow.ps1 -SkipNarUpload
+```
+
+如果先前已執行過課程流程，且 root 下已存在同名 Process Group，重新練習時要同時使用
+`-SkipNarUpload` 與 `-ReplaceExisting`：
+
+```powershell
+.\examples\nifi-custom-processor\scripts\setup-flow.ps1 `
+  -SkipNarUpload `
+  -ReplaceExisting
+
+.\examples\nifi-custom-processor\scripts\setup-policy-flow.ps1 `
+  -SkipNarUpload `
+  -ReplaceExisting
+```
+
+兩個參數的責任不同：`-SkipNarUpload` 只略過已完成的 NAR 上傳；`-ReplaceExisting` 會依
+同名 Process Group 取得 ID，停止 Processor、清空 Queue、停用 Controller Service、刪除
+舊群組，再建立新的同名群組。它不會刪除 NAR。兩支腳本請分開執行；第一支發生錯誤時，
+先處理錯誤再執行第二支。
+
 ### Step 1：取得 token、上傳與等待 NAR
 
 流程依序使用：

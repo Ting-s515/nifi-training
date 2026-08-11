@@ -21,6 +21,9 @@ pip-wheel-metadata/
 coverage.xml
 htmlcov/
 
+# Java and Maven
+target/
+
 # NiFi and local runtime artifacts
 *.nar
 flowfile_repository/

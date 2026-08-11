@@ -42,6 +42,7 @@
 | 寫資料庫 | `PutDatabaseRecord` | 將 records 寫入 DB |
 | 讀檔 | `GetFile` / `ListFile` + `FetchFile` | 讀取檔案來源 |
 | 寫檔 | `PutFile` | 將 FlowFile content 寫出檔案 |
+| 自訂處理 | `ContentDigestProcessor` | 以 Java SPI 計算 content 摘要並寫入 attribute |
 
 ## 常用 Controller Service
 
@@ -53,6 +54,45 @@
 | `JsonRecordSetWriter` | 將 records 寫成 JSON |
 | `DBCPConnectionPool` | JDBC 連線池 |
 | `AvroSchemaRegistry` | 管理 Avro schema |
+
+## Custom Processor SPI 速查
+
+| 元件 | 責任 | 本專案範例 |
+| --- | --- | --- |
+| `nifi-api` | Processor 執行時使用的公開 Java API | `AbstractProcessor`、`ProcessSession` |
+| `PropertyDescriptor` | 宣告 property、validator 與 allowable value | `Hash Algorithm`、`Output Attribute` |
+| `Relationship` | 宣告 FlowFile 的處理出口 | `success`、`failure` |
+| ServiceLoader descriptor | 讓 NiFi 發現 Processor class | `META-INF/services/org.apache.nifi.processor.Processor` |
+| `nifi-mock` | 不啟動 NiFi 也能測試 Processor | `TestRunner`、`MockFlowFile` |
+| NAR | NiFi extension 的部署封裝 | `nifi-training-custom-processor-nar` |
+
+範例位置：
+
+```text
+examples/nifi-custom-processor/
+```
+
+建置與測試：
+
+```powershell
+.\examples\nifi-custom-processor\build.ps1
+```
+
+REST-first 驗證順序：
+
+```text
+POST /access/token
+POST /controller/nar-manager/nars/content
+GET  /controller/nar-manager/nars/{id}
+GET  /flow/processor-types
+POST /process-groups/{id}/processors
+POST /process-groups/{id}/connections
+PUT  /processors/{id}/run-status
+POST /flowfile-queues/{id}/listing-requests
+GET  /flowfile-queues/{id}/flowfiles/{flowfile-uuid}
+```
+
+修改 Processor、Connection 或 Process Group 前，先 `GET` 取得最新 `revision`，再把該 revision 帶入 `PUT` 或 `DELETE`。不要把 `version = 0` 當成所有修改的固定值。
 
 ## 常見 invalid 原因
 

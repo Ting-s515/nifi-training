@@ -56,6 +56,7 @@ curl.exe -k -H "Authorization: Bearer $token" `
 - 修改 Processor、Connection、Process Group 等元件時，常會需要帶 `revision`，避免多人同時修改造成版本衝突。
 - 啟停 Processor 通常用 `PUT /processors/{id}/run-status`。
 - 啟停 Controller Service 通常用 `PUT /controller-services/{id}/run-status`。
+- 安裝 custom Processor NAR 使用 `/controller/nar-manager/nars/...`，不要把一般 JAR 直接當成 NiFi extension 部署。
 - Queue 列表、下載 content、drop request 走 `/flowfile-queues/...`。
 - Data Provenance 查詢走 `/provenance` 和 `/provenance-events/...`。
 - Production 程式不要把帳密硬編碼在程式碼中，應使用安全的 secret 管理方式。
@@ -79,6 +80,118 @@ curl.exe -k -H "Authorization: Bearer $token" `
 | 查 Provenance | `POST /provenance` |
 | 查 Processor status | `GET /flow/processors/{id}/status` |
 | 查 Process Group status | `GET /flow/process-groups/{id}/status` |
+
+## Custom Processor SPI API 實作流程
+
+Lab 11 的範例位於 `examples/nifi-custom-processor/`，以 REST API 完成 NAR 安裝與測試 Flow 建立。建議沿著「先確認 extension，再建立 flow，最後讀回結果」的順序，不要只看到 upload 成功就假設 Processor 已可執行。
+
+### 1. 上傳並等待 NAR 安裝
+
+```powershell
+$narPath = ".\examples\nifi-custom-processor\nifi-training-custom-processor-nar\target\nifi-training-custom-processor-nar-1.0.0.nar"
+
+curl.exe -k -sS -X POST `
+  -H "Authorization: Bearer $token" `
+  -H "Content-Type: application/octet-stream" `
+  -H "filename: nifi-training-custom-processor-nar-1.0.0.nar" `
+  --data-binary "@$narPath" `
+  "https://localhost:8443/nifi-api/controller/nar-manager/nars/content"
+```
+
+上傳回應中的 NAR identifier 只代表安裝請求已建立。接著輪詢：
+
+```text
+GET /controller/nar-manager/nars/{id}
+```
+
+等到 `installComplete = true`，若有 `failureMessage` 就先查 NiFi log，不要繼續建立 Processor。
+
+### 2. 驗證 Processor type
+
+```text
+GET /flow/processor-types
+```
+
+篩選：
+
+```text
+com.example.nifi.training.ContentDigestProcessor
+```
+
+同時讀取 response 的 `bundle.group`、`bundle.artifact` 與 `bundle.version`，再帶入建立 Processor 的 request。這能讓程式使用 NiFi 目前實際註冊的 bundle metadata，而不是依賴 UI 顯示文字或自行猜版本。
+
+### 3. 建立 Processor 與 Connection
+
+建立元件時使用公開的 `ProcessorEntity` 與 `ConnectionEntity` 契約：
+
+```text
+POST /process-groups/{id}/processors
+POST /process-groups/{id}/connections
+```
+
+Processor body 的核心欄位：
+
+```json
+{
+  "revision": {
+    "clientId": "client-id",
+    "version": 0
+  },
+  "component": {
+    "name": "Content Digest",
+    "type": "com.example.nifi.training.ContentDigestProcessor",
+    "bundle": {
+      "group": "com.example.nifi.training",
+      "artifact": "nifi-training-custom-processor-nar",
+      "version": "1.0.0"
+    },
+    "position": {
+      "x": 400.0,
+      "y": 0.0
+    }
+  }
+}
+```
+
+Connection 以 `component.source`、`component.destination` 與 `selectedRelationships` 描述資料流。`success`、`failure` 都要連到下游，或在 Processor 設定中 auto-terminate。
+
+### 4. 執行一次並讀回 FlowFile
+
+```json
+{
+  "revision": {
+    "clientId": "latest-client-id",
+    "version": 1
+  },
+  "state": "RUN_ONCE"
+}
+```
+
+將這個 body 送到：
+
+```text
+PUT /processors/{id}/run-status
+```
+
+再用 queue API 取得結果：
+
+```text
+POST /flowfile-queues/{connection-id}/listing-requests
+GET  /flowfile-queues/{connection-id}/listing-requests/{request-id}
+GET  /flowfile-queues/{connection-id}/flowfiles/{flowfile-uuid}
+```
+
+listing response 會提供 FlowFile UUID；FlowFile entity 才包含 attributes。Lab 11 會從該 entity 驗證 `content.digest`，避免把「queue 有資料」誤認成「custom Processor 已經寫入 attribute」。
+
+### 5. Revision 與穩定介面邊界
+
+- Java Processor 使用 `nifi-api` 的 `AbstractProcessor`、`ProcessSession`、`ProcessContext` 與 `Relationship`。
+- 單元測試使用 `nifi-mock` 的 `TestRunner` 與 `MockFlowFile`。
+- 部署使用 NAR 與 NAR Manager endpoint。
+- Flow 操作使用目前 NiFi 版本的 REST API 與本機 Swagger。
+- UI DOM、內部 class、產生器的非公開 JSON 欄位不列為課程依賴。
+
+NiFi 升級後，請重新讀取容器內的 `swagger.json`，確認 request schema、enum 與 endpoint 是否仍一致；尤其不要把 `uiOnly` response 欄位當成自動化程式的穩定契約。
 
 ## 取得本機完整 Swagger
 
@@ -652,6 +765,7 @@ $rows | Sort-Object Tag, Path, Method | Format-Table -AutoSize
 3. `GET /flow/process-groups/root` 確認能讀 flow。
 4. `GET /process-groups/{id}/processors` 找 Processor。
 5. `PUT /processors/{id}/run-status` 練習啟停。
-6. 再逐步進到建立 Processor、建立 Connection、更新 Controller Service。
+6. `GET /flow/processor-types` 確認 custom NAR 已註冊。
+7. 再逐步進到建立 Processor、建立 Connection、更新 Controller Service。
 
 不要一開始就直接寫大量自動化建立整張 flow。NiFi API 需要處理 revision、validation、Controller Service 狀態、relationship、position、component id 等細節，適合從查詢與啟停開始練。

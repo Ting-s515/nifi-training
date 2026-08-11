@@ -19,6 +19,7 @@
 - 每個 Lab 結尾要回顧整條 flow 在做什麼，避免只照步驟完成卻不知道流程意義。
 - 每個 Step 都要用「新手是否能從上一個 Step 的狀態直接照做」來檢查；若前一步留下的設定會影響下一步，必須明確寫出要保留、修改或刪除哪些設定。
 - NiFi UI 若提供多個獨立 property，就依照 property 語意分開填，不要把外部工具或 SQL 慣用的完整字串硬塞進單一欄位。例如 MSSQL 在 `PutDatabaseRecord` 要分開填 `Database Name`、`Schema Name`、`Table Name`，不要把 `dbo.table_name` 全部填到 `Table Name`。
+- 需要擴充 NiFi SPI 時，優先使用 `nifi-api`、`nifi-mock`、ServiceLoader 與 NAR 公開契約；REST 操作以目前版本 Swagger 驗證，避免依賴 UI 內部實作。
 - 補充文檔只用來釐清容易誤解的概念，不取代 Lab 的實作主線。
 
 課程檔名規則：
@@ -118,13 +119,22 @@ node docs/nifi-training/mdx/build-training-html.mjs
 10. [Lab 08：Processor 排程與執行控制](08-scheduling.md)
 11. [Lab 09：NiFi Cluster 入門與多節點執行觀念](09-clustering.md)
 12. [Lab 10：Query、Formatter 與 Expression Language 實戰](10-query-format-expression-language.md)
-13. [速查表：常用 Processor 與排錯關鍵字](99-cheatsheet.md)
+13. [Lab 11：使用 NiFi SPI 開發自訂 Processor](11-00-custom-processor-spi.md)
+14. [速查表：常用 Processor 與排錯關鍵字](99-cheatsheet.md)
 
 ## 補充閱讀
 
 - [Auto-terminate 完整說明](supplement-auto-terminate.md)
 - [JDBC Driver Jar 完整說明](supplement-jdbc-driver.md)
 - [NiFi REST API Endpoint 清單](supplement-api-endpoints.md)
+
+Lab 11 的可建置 Java 範例位於：
+
+```text
+examples/nifi-custom-processor/
+```
+
+其中包含 Processor 原始碼、`nifi-mock` 測試、NAR 打包與 REST API flow 建立腳本。
 
 ## 每個 Lab 的操作原則
 
@@ -175,4 +185,6 @@ node docs/nifi-training/mdx/build-training-html.mjs
 - 用 ExecuteSQLRecord + PutDatabaseRecord 做本地 DB 到本地 DB 的資料複製。
 - 設定 Timer driven、CRON driven、Concurrent Tasks 與基本執行策略。
 - 看懂 cluster 中 `All Nodes`、`Primary Node`、connection load balancing 與 cluster state 的基本影響。
+- 使用 NiFi 公開 Java API 實作、測試並打包一個 custom Processor NAR。
+- 透過 REST API 上傳 NAR、建立 Processor 與 connection、執行 `RUN_ONCE` 並讀回 FlowFile attribute。
 - 用 queue、bulletin、provenance、logs 找錯。

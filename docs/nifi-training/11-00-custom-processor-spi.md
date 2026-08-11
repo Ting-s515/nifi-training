@@ -46,6 +46,30 @@ docker compose ps
 
 根目錄 `.env` 只保留在本機。腳本會讀取 `NIFI_USERNAME` 與 `NIFI_PASSWORD`，不會把密碼寫入文件或 commit。
 
+### 容器啟動後的初始化順序
+
+`docker compose ps` 顯示 `nifi-service` 為 `Up`，代表 NiFi runtime 已啟動；課程的
+custom Processor 仍在 repository 的 Java 原始碼中，尚未載入 NiFi。Lab 11 的初始化有
+以下三個狀態，必須依序完成：
+
+| 階段 | 產物或狀態 | 完成方式 |
+| --- | --- | --- |
+| 啟動 runtime | `nifi-service` 與 `nifi-registry-service` 為 `Up` | `docker compose up -d` |
+| 建置 extension | `nifi-training-custom-processor-nar-1.0.0.nar` | `build.ps1` 執行 `mvn verify` |
+| 部署 extension | `ContentDigestProcessor` 出現在 NiFi Processor type | `setup-flow.ps1` 上傳、等待安裝並建立測試 Flow |
+
+因此，容器啟動後先從 repository 根目錄執行：
+
+```powershell
+.\examples\nifi-custom-processor\build.ps1
+.\examples\nifi-custom-processor\scripts\setup-flow.ps1
+```
+
+建置成功只代表 NAR 已產生並通過測試；完成部署腳本後，NiFi 才能載入
+`ContentDigestProcessor`。腳本最後會以 REST API 執行一次測試 Flow，並驗證
+FlowFile 的 `content.digest`。若 NiFi 剛啟動仍在初始化，先等待 API ready，再重新執行
+部署腳本。
+
 ### 本 Lab 的範例範圍
 
 本 Lab 先專注一個 native Java Processor，不同時加入 Controller Service、Processor UI、外部 HTTP service 或 scripted processor。這樣可以清楚看見 SPI 的最小契約：

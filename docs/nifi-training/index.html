@@ -209,8 +209,20 @@
 </li>
 </ul>
 <h2 id="doc-readme-b3356305--使用環境">使用環境</h2>
-<p>先確認容器已啟動：</p>
-<pre><code class="language-powershell">docker compose start
+<p>課程啟動分成兩層：先啟動 NiFi runtime，再依 Lab 建置與部署課程範例。容器顯示
+<code>Up</code> 只代表 NiFi 服務正在執行，不代表 Lab 11 的 custom Processor 已經安裝。</p>
+<h3 id="doc-readme-b3356305--首次啟動-nifi-runtime">首次啟動 NiFi runtime</h3>
+<p>第一次啟動時，先建立本機 <code>.env</code>，再建置 Compose 使用的 <code>nifi-sample</code> 映像：</p>
+<pre><code class="language-powershell">if (-not (Test-Path .env)) { Copy-Item .env.sample .env }
+notepad .env
+docker build -t nifi-sample .
+docker compose up -d
+docker compose ps
+</code></pre>
+<p>請在 <code>.env</code> 填入本機使用的 <code>NIFI_USERNAME</code> 與 <code>NIFI_PASSWORD</code>。<code>.env</code> 只保留在本機，
+不要提交實際帳密。</p>
+<p>後續若容器已建立，只要重新啟動環境，可執行：</p>
+<pre><code class="language-powershell">docker compose up -d
 docker compose ps
 </code></pre>
 <p>開啟：</p>
@@ -219,6 +231,16 @@ docker compose ps
 <li>NiFi Registry UI：<code>http://localhost:18080/nifi-registry</code></li>
 </ul>
 <p>登入帳密請看本機 <code>.env</code>，不要把實際密碼寫進文件或 commit。</p>
+<h3 id="doc-readme-b3356305--lab-11-的額外初始化">Lab 11 的額外初始化</h3>
+<p>Lab 11 的 <code>ContentDigestProcessor</code> 不在 <code>nifi-sample</code> 基礎映像內。NiFi runtime 啟動後，
+還要先將課程範例建置成 NAR，再上傳並安裝到 NiFi，Processor type 才會出現在 runtime
+中。請從 repository 根目錄執行：</p>
+<pre><code class="language-powershell">.\examples\nifi-custom-processor\build.ps1
+.\examples\nifi-custom-processor\scripts\setup-flow.ps1
+</code></pre>
+<p>第二個腳本會讀取 <code>.env</code>、上傳 NAR、等待安裝完成、確認 Processor type，並建立測試
+Process Group。完整的 API 與驗證說明請接著閱讀
+<a href="#doc-11-00-custom-processor-spi-3fd4f126">Lab 11：使用 NiFi SPI 開發自訂 Processor</a>。</p>
 <p>注意：課程中的 <code>docker compose ...</code> 指令都要在專案根目錄執行，也就是目前包含 <code>docker-compose.yaml</code> 的工作目錄。若在其他目錄執行，可能會出現 <code>no such service: nifi</code> 或找不到 compose 專案。</p>
 <h2 id="doc-readme-b3356305--產生與啟動雙欄式-html-閱讀器">產生與啟動雙欄式 HTML 閱讀器</h2>
 <p><code>docs/nifi-training</code> 是由 Markdown 在 build 時產生的純靜態文件網站。左欄提供分類目錄、搜尋與前後頁切換，右欄顯示課程內容；程式碼區塊支援複製，Mermaid 圖表支援放大、縮放與拖曳。</p>
@@ -5421,6 +5443,44 @@ SELECT * FROM FLOWFILE WHERE "order_id" = '1003'
 docker compose ps
 </code></pre>
 <p>根目錄 <code>.env</code> 只保留在本機。腳本會讀取 <code>NIFI_USERNAME</code> 與 <code>NIFI_PASSWORD</code>，不會把密碼寫入文件或 commit。</p>
+<h3 id="doc-11-00-custom-processor-spi-3fd4f126--容器啟動後的初始化順序">容器啟動後的初始化順序</h3>
+<p><code>docker compose ps</code> 顯示 <code>nifi-service</code> 為 <code>Up</code>，代表 NiFi runtime 已啟動；課程的
+custom Processor 仍在 repository 的 Java 原始碼中，尚未載入 NiFi。Lab 11 的初始化有
+以下三個狀態，必須依序完成：</p>
+<table>
+<thead>
+<tr>
+<th>階段</th>
+<th>產物或狀態</th>
+<th>完成方式</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>啟動 runtime</td>
+<td><code>nifi-service</code> 與 <code>nifi-registry-service</code> 為 <code>Up</code></td>
+<td><code>docker compose up -d</code></td>
+</tr>
+<tr>
+<td>建置 extension</td>
+<td><code>nifi-training-custom-processor-nar-1.0.0.nar</code></td>
+<td><code>build.ps1</code> 執行 <code>mvn verify</code></td>
+</tr>
+<tr>
+<td>部署 extension</td>
+<td><code>ContentDigestProcessor</code> 出現在 NiFi Processor type</td>
+<td><code>setup-flow.ps1</code> 上傳、等待安裝並建立測試 Flow</td>
+</tr>
+</tbody>
+</table>
+<p>因此，容器啟動後先從 repository 根目錄執行：</p>
+<pre><code class="language-powershell">.\examples\nifi-custom-processor\build.ps1
+.\examples\nifi-custom-processor\scripts\setup-flow.ps1
+</code></pre>
+<p>建置成功只代表 NAR 已產生並通過測試；完成部署腳本後，NiFi 才能載入
+<code>ContentDigestProcessor</code>。腳本最後會以 REST API 執行一次測試 Flow，並驗證
+FlowFile 的 <code>content.digest</code>。若 NiFi 剛啟動仍在初始化，先等待 API ready，再重新執行
+部署腳本。</p>
 <h3 id="doc-11-00-custom-processor-spi-3fd4f126--本-lab-的範例範圍">本 Lab 的範例範圍</h3>
 <p>本 Lab 先專注一個 native Java Processor，不同時加入 Controller Service、Processor UI、外部 HTTP service 或 scripted processor。這樣可以清楚看見 SPI 的最小契約：</p>
 <ol>

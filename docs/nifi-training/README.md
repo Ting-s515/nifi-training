@@ -34,10 +34,28 @@
 
 ## 使用環境
 
-先確認容器已啟動：
+課程啟動分成兩層：先啟動 NiFi runtime，再依 Lab 建置與部署課程範例。容器顯示
+`Up` 只代表 NiFi 服務正在執行，不代表 Lab 11 的 custom Processor 已經安裝。
+
+### 首次啟動 NiFi runtime
+
+第一次啟動時，先建立本機 `.env`，再建置 Compose 使用的 `nifi-sample` 映像：
 
 ```powershell
-docker compose start
+if (-not (Test-Path .env)) { Copy-Item .env.sample .env }
+notepad .env
+docker build -t nifi-sample .
+docker compose up -d
+docker compose ps
+```
+
+請在 `.env` 填入本機使用的 `NIFI_USERNAME` 與 `NIFI_PASSWORD`。`.env` 只保留在本機，
+不要提交實際帳密。
+
+後續若容器已建立，只要重新啟動環境，可執行：
+
+```powershell
+docker compose up -d
 docker compose ps
 ```
 
@@ -47,6 +65,21 @@ docker compose ps
 - NiFi Registry UI：`http://localhost:18080/nifi-registry`
 
 登入帳密請看本機 `.env`，不要把實際密碼寫進文件或 commit。
+
+### Lab 11 的額外初始化
+
+Lab 11 的 `ContentDigestProcessor` 不在 `nifi-sample` 基礎映像內。NiFi runtime 啟動後，
+還要先將課程範例建置成 NAR，再上傳並安裝到 NiFi，Processor type 才會出現在 runtime
+中。請從 repository 根目錄執行：
+
+```powershell
+.\examples\nifi-custom-processor\build.ps1
+.\examples\nifi-custom-processor\scripts\setup-flow.ps1
+```
+
+第二個腳本會讀取 `.env`、上傳 NAR、等待安裝完成、確認 Processor type，並建立測試
+Process Group。完整的 API 與驗證說明請接著閱讀
+[Lab 11：使用 NiFi SPI 開發自訂 Processor](11-00-custom-processor-spi.md)。
 
 注意：課程中的 `docker compose ...` 指令都要在專案根目錄執行，也就是目前包含 `docker-compose.yaml` 的工作目錄。若在其他目錄執行，可能會出現 `no such service: nifi` 或找不到 compose 專案。
 

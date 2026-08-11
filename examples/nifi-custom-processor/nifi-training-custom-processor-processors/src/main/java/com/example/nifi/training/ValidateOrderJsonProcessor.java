@@ -51,12 +51,14 @@ import org.apache.nifi.serialization.record.Record;
 })
 public class ValidateOrderJsonProcessor extends AbstractProcessor {
 
+    // 將欄位名稱集中管理，避免 schema、驗證規則與 reason code 因為手寫字串不一致。
     public static final String ORDER_ID_FIELD = "order_id";
     public static final String CUSTOMER_FIELD = "customer";
     public static final String AMOUNT_FIELD = "amount";
     public static final String STATUS_ATTRIBUTE = "training.validation.status";
     public static final String REASON_ATTRIBUTE = "training.validation.reason";
 
+    // 由 Controller Service 提供讀取能力，讓 Processor 能在不改 Java 邏輯的情況下替換 JSON、CSV 或 Avro reader。
     public static final PropertyDescriptor RECORD_READER = new PropertyDescriptor.Builder()
             .name("Record Reader")
             .displayName("Record Reader")
@@ -65,6 +67,7 @@ public class ValidateOrderJsonProcessor extends AbstractProcessor {
             .identifiesControllerService(RecordReaderFactory.class)
             .build();
 
+    // 使用明確 relationship 讓成功與失敗可以接到不同下游，保留資料流的可觀察性與後續處理選擇。
     public static final Relationship REL_SUCCESS = new Relationship.Builder()
             .name("success")
             .description("FlowFiles containing an order that passed all business validation rules.")
@@ -97,6 +100,7 @@ public class ValidateOrderJsonProcessor extends AbstractProcessor {
 
     @Override
     public void onTrigger(final ProcessContext context, final ProcessSession session) throws ProcessException {
+        // 每次排程只處理一個 FlowFile，讓 NiFi 的 session 與 retry 邊界對應到一筆訂單。
         FlowFile flowFile = session.get();
         if (flowFile == null) {
             // 空 queue 只是本次排程沒有資料，不應製造一個沒有來源的 failure FlowFile。

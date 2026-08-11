@@ -55,12 +55,14 @@ import org.apache.nifi.serialization.record.Record;
 })
 public class OrderPolicyProcessor extends AbstractProcessor {
 
+    // 欄位與 attribute 名稱是 Processor 和下游 Flow 之間的穩定 contract，集中管理可避免分支使用不同字串。
     public static final String ORDER_ID_FIELD = "order_id";
     public static final String CUSTOMER_TIER_FIELD = "customer_tier";
     public static final String AMOUNT_FIELD = "amount";
     public static final String DECISION_ATTRIBUTE = "training.policy.decision";
     public static final String REASON_ATTRIBUTE = "training.policy.reason";
 
+    // 由 Controller Service 負責格式解析，政策 Processor 因此只依賴 RecordReaderFactory 這個公開 API contract。
     public static final PropertyDescriptor RECORD_READER = new PropertyDescriptor.Builder()
             .name("Record Reader")
             .displayName("Record Reader")
@@ -69,6 +71,7 @@ public class OrderPolicyProcessor extends AbstractProcessor {
             .identifiesControllerService(RecordReaderFactory.class)
             .build();
 
+    // 門檻設為 Processor properties，讓同一個 Java 元件能透過不同 Flow 設定不同公司的政策值。
     public static final PropertyDescriptor MANUAL_REVIEW_THRESHOLD = new PropertyDescriptor.Builder()
             .name("Manual Review Threshold")
             .displayName("Manual Review Threshold")
@@ -87,6 +90,7 @@ public class OrderPolicyProcessor extends AbstractProcessor {
             .addValidator(StandardValidators.NUMBER_VALIDATOR)
             .build();
 
+    // VIP tier 也是設定值而非硬編碼，避免公司定義改名時必須重新編譯 Processor。
     public static final PropertyDescriptor VIP_CUSTOMER_TIER = new PropertyDescriptor.Builder()
             .name("VIP Customer Tier")
             .displayName("VIP Customer Tier")
@@ -96,6 +100,7 @@ public class OrderPolicyProcessor extends AbstractProcessor {
             .addValidator(StandardValidators.NON_BLANK_VALIDATOR)
             .build();
 
+    // 每個政策結果使用獨立 relationship，讓下游可以分別接人工審核、拒絕、成功與錯誤處理流程。
     public static final Relationship REL_APPROVED = new Relationship.Builder()
             .name("approved")
             .description("Orders that pass the configured company policy.")
@@ -142,6 +147,7 @@ public class OrderPolicyProcessor extends AbstractProcessor {
 
     @Override
     protected Collection<ValidationResult> customValidate(final ValidationContext context) {
+        // 門檻之間的相對關係屬於設定 contract，提前在 UI validation 階段攔截，避免錯誤設定進入 runtime。
         final String manualThresholdText = context.getProperty(MANUAL_REVIEW_THRESHOLD).getValue();
         final String rejectThresholdText = context.getProperty(REJECT_THRESHOLD).getValue();
         if (manualThresholdText == null || rejectThresholdText == null) {
@@ -159,7 +165,7 @@ public class OrderPolicyProcessor extends AbstractProcessor {
                 return List.of(invalidConfiguration("Reject Threshold must be greater than Manual Review Threshold."));
             }
         } catch (NumberFormatException exception) {
-            // StandardValidators.NUMBER_VALIDATOR reports the input format error to NiFi.
+            // 數字格式由 StandardValidators.NUMBER_VALIDATOR 回報，這裡只負責跨欄位關係的驗證。
             return List.of();
         }
 
@@ -198,12 +204,14 @@ public class OrderPolicyProcessor extends AbstractProcessor {
         // Processor 只依賴 RecordReaderFactory，格式解析責任由 Controller Service 承擔。
         final RecordReaderFactory readerFactory = context.getProperty(RECORD_READER)
                 .asControllerService(RecordReaderFactory.class);
+        // 從 ProcessContext 取得有效設定，讓 UI 或參數更新後的政策值能套用到後續 FlowFile。
         final double manualReviewThreshold = context.getProperty(MANUAL_REVIEW_THRESHOLD).asDouble();
         final double rejectThreshold = context.getProperty(REJECT_THRESHOLD).asDouble();
         final String vipCustomerTier = context.getProperty(VIP_CUSTOMER_TIER).getValue().trim();
 
         try (InputStream input = session.read(flowFile);
              RecordReader reader = readerFactory.createRecordReader(flowFile, input, getLogger())) {
+            // 一個 FlowFile 代表一筆訂單，先確認第一筆存在，再檢查是否意外帶入多筆資料。
             final Record record = reader.nextRecord();
             if (record == null) {
                 return PolicyResult.failure("record.required");
@@ -220,6 +228,7 @@ public class OrderPolicyProcessor extends AbstractProcessor {
 
             final String customerTier = record.getAsString(CUSTOMER_TIER_FIELD).trim();
             final double amount = ((Number) record.getValue(AMOUNT_FIELD)).doubleValue();
+            // 先判斷拒絕門檻，再判斷人工審核，確保高金額訂單不會被 VIP 條件繞過拒絕規則。
             if (amount > rejectThreshold) {
                 return PolicyResult.rejected("amount.limit");
             }
@@ -268,6 +277,7 @@ public class OrderPolicyProcessor extends AbstractProcessor {
     }
 
     private ValidationResult invalidConfiguration(final String explanation) {
+        // 回傳 NiFi 可呈現在 Processor UI 的 invalid 結果，讓學員能從設定畫面直接找到原因。
         return new ValidationResult.Builder()
                 .subject("Order policy thresholds")
                 .valid(false)
@@ -275,6 +285,7 @@ public class OrderPolicyProcessor extends AbstractProcessor {
                 .build();
     }
 
+    // 將 attribute 值與 relationship 綁在同一個結果，避免分支更新其中一項後造成下游觀察與實際路由不一致。
     private record PolicyResult(String decision, String reason, Relationship relationship) {
 
         private static PolicyResult approved() {

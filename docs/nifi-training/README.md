@@ -49,21 +49,58 @@ docker compose ps
 
 注意：課程中的 `docker compose ...` 指令都要在專案根目錄執行，也就是目前包含 `docker-compose.yaml` 的工作目錄。若在其他目錄執行，可能會出現 `no such service: nifi` 或找不到 compose 專案。
 
-## 產生雙欄式 HTML 閱讀器
+## 產生與啟動雙欄式 HTML 閱讀器
 
-本目錄提供 MDX 版面範本與 MJS 產生器，可將所有課程 Markdown 文件彙整成單一雙欄式 HTML。左欄是可搜尋、可點選的文件目錄，右欄顯示目前選取的課程內容。
+`docs/nifi-training` 是由 Markdown 在 build 時產生的純靜態文件網站。左欄提供分類目錄、搜尋與前後頁切換，右欄顯示課程內容；程式碼區塊支援複製，Mermaid 圖表支援放大、縮放與拖曳。
 
-在專案根目錄執行：
+網站建置需要 Node.js 24 以上。以下指令都要在 repository 根目錄執行；PowerShell 使用 `npm.cmd` 可避免 npm script execution policy 造成的啟動問題。
+
+### 首次設定
+
+安裝閱讀器的 build、Markdown render、Mermaid 與測試相依套件：
+
+```powershell
+npm.cmd --prefix ./docs/nifi-training install
+```
+
+### 測試與建置
+
+```powershell
+# 執行文件清單、連結、複製與 Mermaid dialog 契約測試
+npm.cmd --prefix ./docs/nifi-training test
+
+# 從目前 Markdown 來源重新產生靜態網站
+npm.cmd --prefix ./docs/nifi-training run build
+```
+
+### 啟動本機文件網站
+
+`dev` 會先執行 build，再啟動只綁定 `127.0.0.1:18100` 的靜態伺服器：
+
+```powershell
+npm.cmd --prefix ./docs/nifi-training run dev
+```
+
+開啟 <http://127.0.0.1:18100>，完成後按 `Ctrl+C` 停止伺服器。
+
+如果已經完成 build，只想啟動靜態伺服器，可使用：
+
+```powershell
+npm.cmd --prefix ./docs/nifi-training run preview
+```
+
+### 輸出與來源
+
+- Markdown 來源：`docs/nifi-training/*.md`
+- 閱讀器來源：`docs/nifi-training/src/`
+- 建置腳本與靜態伺服器：`docs/nifi-training/script/`
+- 產生檔案：`docs/nifi-training/index.html`、`style.css`、`app.mjs`
+
+既有的直接產生入口仍保留為相容 wrapper，但必須先完成相依套件安裝：
 
 ```powershell
 node docs/nifi-training/mdx/build-training-html.mjs
 ```
-
-輸出檔案：
-
-- `docs/nifi-training/index.html`
-
-產出後可直接用瀏覽器開啟 `index.html` 閱讀，不需要啟動 NiFi 或安裝額外 npm 套件。
 
 ## 課程路線
 

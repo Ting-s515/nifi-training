@@ -213,16 +213,38 @@ docker compose ps
 </ul>
 <p>登入帳密請看本機 <code>.env</code>，不要把實際密碼寫進文件或 commit。</p>
 <p>注意：課程中的 <code>docker compose ...</code> 指令都要在專案根目錄執行，也就是目前包含 <code>docker-compose.yaml</code> 的工作目錄。若在其他目錄執行，可能會出現 <code>no such service: nifi</code> 或找不到 compose 專案。</p>
-<h2 id="doc-readme-b3356305--產生雙欄式-html-閱讀器">產生雙欄式 HTML 閱讀器</h2>
-<p>本目錄提供 MDX 版面範本與 MJS 產生器，可將所有課程 Markdown 文件彙整成單一雙欄式 HTML。左欄是可搜尋、可點選的文件目錄，右欄顯示目前選取的課程內容。</p>
-<p>在專案根目錄執行：</p>
+<h2 id="doc-readme-b3356305--產生與啟動雙欄式-html-閱讀器">產生與啟動雙欄式 HTML 閱讀器</h2>
+<p><code>docs/nifi-training</code> 是由 Markdown 在 build 時產生的純靜態文件網站。左欄提供分類目錄、搜尋與前後頁切換，右欄顯示課程內容；程式碼區塊支援複製，Mermaid 圖表支援放大、縮放與拖曳。</p>
+<p>網站建置需要 Node.js 24 以上。以下指令都要在 repository 根目錄執行；PowerShell 使用 <code>npm.cmd</code> 可避免 npm script execution policy 造成的啟動問題。</p>
+<h3 id="doc-readme-b3356305--首次設定">首次設定</h3>
+<p>安裝閱讀器的 build、Markdown render、Mermaid 與測試相依套件：</p>
+<pre><code class="language-powershell">npm.cmd --prefix ./docs/nifi-training install
+</code></pre>
+<h3 id="doc-readme-b3356305--測試與建置">測試與建置</h3>
+<pre><code class="language-powershell"># 執行文件清單、連結、複製與 Mermaid dialog 契約測試
+npm.cmd --prefix ./docs/nifi-training test
+
+# 從目前 Markdown 來源重新產生靜態網站
+npm.cmd --prefix ./docs/nifi-training run build
+</code></pre>
+<h3 id="doc-readme-b3356305--啟動本機文件網站">啟動本機文件網站</h3>
+<p><code>dev</code> 會先執行 build，再啟動只綁定 <code>127.0.0.1:18100</code> 的靜態伺服器：</p>
+<pre><code class="language-powershell">npm.cmd --prefix ./docs/nifi-training run dev
+</code></pre>
+<p>開啟 <a href="http://127.0.0.1:18100" target="_blank" rel="noreferrer noopener">http://127.0.0.1:18100</a>，完成後按 <code>Ctrl+C</code> 停止伺服器。</p>
+<p>如果已經完成 build，只想啟動靜態伺服器，可使用：</p>
+<pre><code class="language-powershell">npm.cmd --prefix ./docs/nifi-training run preview
+</code></pre>
+<h3 id="doc-readme-b3356305--輸出與來源">輸出與來源</h3>
+<ul>
+<li>Markdown 來源：<code>docs/nifi-training/*.md</code></li>
+<li>閱讀器來源：<code>docs/nifi-training/src/</code></li>
+<li>建置腳本與靜態伺服器：<code>docs/nifi-training/script/</code></li>
+<li>產生檔案：<code>docs/nifi-training/index.html</code>、<code>style.css</code>、<code>app.mjs</code></li>
+</ul>
+<p>既有的直接產生入口仍保留為相容 wrapper，但必須先完成相依套件安裝：</p>
 <pre><code class="language-powershell">node docs/nifi-training/mdx/build-training-html.mjs
 </code></pre>
-<p>輸出檔案：</p>
-<ul>
-<li><code>docs/nifi-training/index.html</code></li>
-</ul>
-<p>產出後可直接用瀏覽器開啟 <code>index.html</code> 閱讀，不需要啟動 NiFi 或安裝額外 npm 套件。</p>
 <h2 id="doc-readme-b3356305--課程路線">課程路線</h2>
 <p>建議照順序完成：</p>
 <ol>

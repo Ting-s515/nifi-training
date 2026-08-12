@@ -280,6 +280,7 @@ Spring upstream 的 host，也不需要知道 APISIX Admin API 的 key。
 都還不能證明 Spring transaction 與資料 mapping 正確。
 
 ## Step 0：準備 Keycloak、Spring、APISIX 與 NiFi
+執行目錄：依 0.1～0.3 子步驟切換至 `<spring-boot-training-root>\spring-course-backend`、`<spring-boot-training-root>\apisix` 或 `<nifi-training-root>`。
 
 ### 0.1 Keycloak 管理用 Client
 
@@ -355,6 +356,7 @@ docker compose up -d --force-recreate nifi
 ~~~
 
 ## Step 1：確認 APISIX allowlist 與環境設定
+執行目錄：`<spring-boot-training-root>\apisix`（設定檔位於 `<spring-boot-training-root>\spring-course-backend\.env`）。
 
 在 spring-course-backend/.env 確認：
 
@@ -381,6 +383,7 @@ docker compose ps
 APISIX 9180 是管理入口；NiFi 執行業務 request 使用的是 APISIX Data Plane 9080。
 
 ## Step 2：建立或沿用三個 Keycloak Role
+執行目錄：`<spring-boot-training-root>\spring-course-backend`。
 
 在仍執行 `local` profile 的 Spring backend 上，使用本機 Provision API。這個 API 會
 建立或沿用 `spring-course-demo` Client、Client Role、Service Account 與 Role mapping；
@@ -431,6 +434,7 @@ foreach ($roleRequest in $roleRequests) {
 `realm-management` 權限；若回 400，檢查 Realm、issuer 與 Spring `.env`。
 
 ## Step 3：啟動 APISIX profile 並取得 target token
+執行目錄：`<spring-boot-training-root>\spring-course-backend`。
 
 停止 local backend 後，以 local,apisix profile 重新啟動：
 
@@ -474,6 +478,7 @@ $bearerHeaders = @{
 /nifi-api/access/token 回傳的 token。
 
 ## Step 4：以 Spring Provision API 建立 APISIX route
+執行目錄：`<spring-boot-training-root>\spring-course-backend`（沿用 Step 3 的 PowerShell session）。
 
 使用含 gateway-admin 的 $bearerHeaders，讓 Spring 在內部呼叫 APISIX Admin API：
 
@@ -514,6 +519,7 @@ springPath 已在 allowlist 且 methods 為受支援的 HTTP method；若得到 
 檢查 APISIX Admin URL、Admin key 與 container 狀態。
 
 ## Step 5：確認 API contract（規格說明，不需直接執行）
+執行目錄：無（本 Step 不需執行）；可選手動驗證請沿用 `<spring-boot-training-root>\spring-course-backend` 的 PowerShell session。
 
 本 Step 的目的，是先確認 Spring API 接收的欄位、驗證規則與回應狀態，不會建立 flow
 或寫入資料庫。下方 `http` code block 是 request contract 範例，不是可直接貼到
@@ -615,6 +621,7 @@ NiFi 不應把 400、401、403、409 當成同一種錯誤。輸入與權限問�
 業務分支；只有 5xx 或連線失敗才適合進 RetryFlowFile。
 
 ## Step 6：以 REST API 建立並執行 NiFi flow
+執行目錄：`<nifi-training-root>`。
 
 以下指令要在 NiFi repository 根目錄執行；建議沿用建立 Role 時的同一個 PowerShell
 session，讓 `$targetClientSecret` 只存在記憶體：
@@ -658,6 +665,7 @@ OAuth2 Controller Service 已 `Enabled`、URL 不是 9180 Admin URL，且
 不應交給 retry。
 
 ## Step 7：從 Repository 反查結果
+執行目錄：無（本 Step 為結果反查與程式閱讀）。
 
 Spring API 會在同一個 transaction 中：
 

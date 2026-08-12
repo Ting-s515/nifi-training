@@ -6826,6 +6826,7 @@ Spring upstream 的 host，也不需要知道 APISIX Admin API 的 key。</p>
 <p>完成這張反查表，才算理解串接；只看到 NiFi success queue 或只看到 APISIX route 存在，
 都還不能證明 Spring transaction 與資料 mapping 正確。</p>
 <h2 id="doc-12-nifi-apisix-spring-ingest-e752538c--step-0準備-keycloakspringapisix-與-nifi">Step 0：準備 Keycloak、Spring、APISIX 與 NiFi</h2>
+<p>執行目錄：依 0.1～0.3 子步驟切換至 <code>&#x3C;spring-boot-training-root>\spring-course-backend</code>、<code>&#x3C;spring-boot-training-root>\apisix</code> 或 <code>&#x3C;nifi-training-root></code>。</p>
 <h3 id="doc-12-nifi-apisix-spring-ingest-e752538c--01-keycloak-管理用-client">0.1 Keycloak 管理用 Client</h3>
 <p>若環境已經有可呼叫 Keycloak Admin API 的管理用 Client，可以沿用；否則在目標 Realm
 建立 <code>spring-course-admin</code> confidential Client：</p>
@@ -6881,6 +6882,7 @@ APISIX Data Plane <code>localhost:9080</code> 與 Admin API <code>localhost:9180
 <pre><code class="language-powershell">docker compose up -d --force-recreate nifi
 </code></pre>
 <h2 id="doc-12-nifi-apisix-spring-ingest-e752538c--step-1確認-apisix-allowlist-與環境設定">Step 1：確認 APISIX allowlist 與環境設定</h2>
+<p>執行目錄：<code>&#x3C;spring-boot-training-root>\apisix</code>（設定檔位於 <code>&#x3C;spring-boot-training-root>\spring-course-backend\.env</code>）。</p>
 <p>在 spring-course-backend/.env 確認：</p>
 <pre><code class="language-properties">APISIX_ADMIN_URL=http://localhost:9180/apisix/admin
 APISIX_ADMIN_KEY=&#x3C;本機 APISIX Admin key>
@@ -6898,6 +6900,7 @@ docker compose ps
 </code></pre>
 <p>APISIX 9180 是管理入口；NiFi 執行業務 request 使用的是 APISIX Data Plane 9080。</p>
 <h2 id="doc-12-nifi-apisix-spring-ingest-e752538c--step-2建立或沿用三個-keycloak-role">Step 2：建立或沿用三個 Keycloak Role</h2>
+<p>執行目錄：<code>&#x3C;spring-boot-training-root>\spring-course-backend</code>。</p>
 <p>在仍執行 <code>local</code> profile 的 Spring backend 上，使用本機 Provision API。這個 API 會
 建立或沿用 <code>spring-course-demo</code> Client、Client Role、Service Account 與 Role mapping；
 重複執行是安全的。以下保留 Client Secret 在同一個 PowerShell session 的記憶體中：</p>
@@ -6943,6 +6946,7 @@ foreach ($roleRequest in $roleRequests) {
 <code>POST /api/v1/integrations/products</code>。若回 403，檢查管理用 Client 的
 <code>realm-management</code> 權限；若回 400，檢查 Realm、issuer 與 Spring <code>.env</code>。</p>
 <h2 id="doc-12-nifi-apisix-spring-ingest-e752538c--step-3啟動-apisix-profile-並取得-target-token">Step 3：啟動 APISIX profile 並取得 target token</h2>
+<p>執行目錄：<code>&#x3C;spring-boot-training-root>\spring-course-backend</code>。</p>
 <p>停止 local backend 後，以 local,apisix profile 重新啟動：</p>
 <pre><code class="language-powershell">.\mvnw.cmd spring-boot:run '-Dspring-boot.run.profiles=local,apisix'
 </code></pre>
@@ -6978,6 +6982,7 @@ $bearerHeaders = @{
 <p>此 Bearer token 是 Keycloak 發行的，不是 APISIX X-API-KEY，也不是 NiFi
 /nifi-api/access/token 回傳的 token。</p>
 <h2 id="doc-12-nifi-apisix-spring-ingest-e752538c--step-4以-spring-provision-api-建立-apisix-route">Step 4：以 Spring Provision API 建立 APISIX route</h2>
+<p>執行目錄：<code>&#x3C;spring-boot-training-root>\spring-course-backend</code>（沿用 Step 3 的 PowerShell session）。</p>
 <p>使用含 gateway-admin 的 $bearerHeaders，讓 Spring 在內部呼叫 APISIX Admin API：</p>
 <pre><code class="language-powershell">$gatewayProvisionBody = @{
     springPath = '/api/v1/integrations/products'
@@ -7007,6 +7012,7 @@ NiFi 腳本時要把 host 位置改成 host.docker.internal：</p>
 springPath 已在 allowlist 且 methods 為受支援的 HTTP method；若得到 502 / E603，
 檢查 APISIX Admin URL、Admin key 與 container 狀態。</p>
 <h2 id="doc-12-nifi-apisix-spring-ingest-e752538c--step-5確認-api-contract規格說明不需直接執行">Step 5：確認 API contract（規格說明，不需直接執行）</h2>
+<p>執行目錄：無（本 Step 不需執行）；可選手動驗證請沿用 <code>&#x3C;spring-boot-training-root>\spring-course-backend</code> 的 PowerShell session。</p>
 <p>本 Step 的目的，是先確認 Spring API 接收的欄位、驗證規則與回應狀態，不會建立 flow
 或寫入資料庫。下方 <code>http</code> code block 是 request contract 範例，不是可直接貼到
 PowerShell 執行的指令；正式課程主線請閱讀完本 Step 後直接進入 Step 6。</p>
@@ -7158,6 +7164,7 @@ container 內部呼叫則使用 <code>host.docker.internal:9080</code>。</p>
 <p>NiFi 不應把 400、401、403、409 當成同一種錯誤。輸入與權限問題要進可觀察的
 業務分支；只有 5xx 或連線失敗才適合進 RetryFlowFile。</p>
 <h2 id="doc-12-nifi-apisix-spring-ingest-e752538c--step-6以-rest-api-建立並執行-nifi-flow">Step 6：以 REST API 建立並執行 NiFi flow</h2>
+<p>執行目錄：<code>&#x3C;nifi-training-root></code>。</p>
 <p>以下指令要在 NiFi repository 根目錄執行；建議沿用建立 Role 時的同一個 PowerShell
 session，讓 <code>$targetClientSecret</code> 只存在記憶體：</p>
 <pre><code class="language-powershell">Set-Location &#x3C;nifi-training-root>
@@ -7192,6 +7199,7 @@ OAuth2 Controller Service 已 <code>Enabled</code>、URL 不是 9180 Admin URL�
 <code>data.duplicate=true</code>；同一 <code>sourceRecordId</code> 但內容不同則是 HTTP 409 / <code>E303</code>，
 不應交給 retry。</p>
 <h2 id="doc-12-nifi-apisix-spring-ingest-e752538c--step-7從-repository-反查結果">Step 7：從 Repository 反查結果</h2>
+<p>執行目錄：無（本 Step 為結果反查與程式閱讀）。</p>
 <p>Spring API 會在同一個 transaction 中：</p>
 <ol>
 <li>讀取 product_import.source_record_id。</li>

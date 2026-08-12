@@ -626,6 +626,9 @@ NiFi 不應把 400、401、403、409 當成同一種錯誤。輸入與權限問�
 以下指令要在 NiFi repository 根目錄執行；建議沿用建立 Role 時的同一個 PowerShell
 session，讓 `$targetClientSecret` 只存在記憶體：
 
+執行前請將 `<nifi-training-root>` 替換成實際 NiFi repository 路徑，例如
+`C:\side-project\nifi-training`，不可將佔位符原樣貼入 PowerShell。
+
 ~~~powershell
 Set-Location <nifi-training-root>
 

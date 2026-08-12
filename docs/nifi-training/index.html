@@ -7167,6 +7167,8 @@ container 內部呼叫則使用 <code>host.docker.internal:9080</code>。</p>
 <p>執行目錄：<code>&#x3C;nifi-training-root></code>。</p>
 <p>以下指令要在 NiFi repository 根目錄執行；建議沿用建立 Role 時的同一個 PowerShell
 session，讓 <code>$targetClientSecret</code> 只存在記憶體：</p>
+<p>執行前請將 <code>&#x3C;nifi-training-root></code> 替換成實際 NiFi repository 路徑，例如
+<code>C:\side-project\nifi-training</code>，不可將佔位符原樣貼入 PowerShell。</p>
 <pre><code class="language-powershell">Set-Location &#x3C;nifi-training-root>
 
 .\examples\nifi-api-ingest\scripts\setup-flow.ps1 `

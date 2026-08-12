@@ -151,10 +151,9 @@ Lab 12 不需要重新建置 Lab 11 的 JAR/NAR。它使用 NiFi runtime 已提�
 `GenerateFlowFile`、`SplitJson`、`UpdateAttribute`、`InvokeHTTP`、`RouteOnAttribute`、
 `RetryFlowFile` 與 `StandardOauth2AccessTokenProvider`，由 REST API 腳本建立完整 flow。
 
-執行前，請先完成 Spring 課程的 APISIX route 與 Keycloak `nifi-ingest` Role，讓
-`products-ingest` endpoint 轉送到 `/api/v1/integrations/products`。完整的 Spring API、
-Role、route 與 Secret 記憶體管理步驟，請閱讀 Spring 專案的
-`docs/19-nifi-api-ingest.md`，再回到 [Lab 12：NiFi → APISIX → Spring Boot 匯入流程](12-nifi-apisix-spring-ingest.md)。
+Lab 12 文件本身已包含 Keycloak Role、APISIX route、Spring API contract、Secret 記憶體
+管理、NiFi REST 建流、執行驗證與排錯步驟。學員只需要閱讀本 repository 的 Lab 12，
+不需要再跳到另一個 repository 的課程文件；另一個專案的程式碼路徑只作為責任反查座標。
 
 腳本需要 Keycloak Client Secret，但不把 Secret 寫入 repository：
 
@@ -252,20 +251,19 @@ node docs/nifi-training/mdx/build-training-html.mjs
 
 ## 端到端串接主線
 
-Lab 12 是本課程與 Spring Boot 公司練習專案的整合入口，請將它視為三個 repository
-之間的實作導覽，而不是單純的 NiFi Processor 操作：
+Lab 12 是本課程與 Spring Boot 公司練習專案的整合入口，但教材內容集中在本文件，
+不是要求學員在兩個 repository 的課程文件之間來回切換：
 
 | 階段 | 課程／檔案 | 學員要理解的責任 |
 | --- | --- | --- |
-| 建立權限與 Gateway route | Spring `docs/17-company-practice-project.md`、`docs/18-apisix-gateway.md`、`docs/19-nifi-api-ingest.md` | Keycloak Role、APISIX Admin API、公開 Gateway path 與 Spring target path |
+| 建立權限與 Gateway route | Lab 12 的 Step 0～4 | Keycloak Role、APISIX Admin API、公開 Gateway path 與 Spring target path |
 | 建立 NiFi flow | `examples/nifi-api-ingest/scripts/setup-flow.ps1` | 以 NiFi REST API 建立 Processor、Controller Service、Connection 與 Parameter Context |
 | 執行 HTTP 串接 | Lab 12 的 `InvokeHTTP` | 用 Keycloak OAuth2 token 呼叫 APISIX Data Plane，而不是直接連 Spring 或 APISIX Admin |
-| 驗證商業結果 | Spring `ProductImportController`、`ProductImportService`、`JdbcProductImportRepository` | validation、transaction、冪等重送、400／409 與 SQLite mapping |
+| 驗證商業結果 | Lab 12 的 API contract 與反查表 | validation、transaction、冪等重送、400／409 與 SQLite mapping |
 
 遇到問題時，先依序檢查「NiFi flow → APISIX route → Spring Security → Controller／Service
-→ Repository」，不要只在 NiFi queue 端猜測。Lab 12 內的
-[實作檔案地圖](12-nifi-apisix-spring-ingest.md#這條串接的實作檔案地圖) 會帶你從每個
-結果反查實際程式碼位置。
+→ Repository」，不要只在 NiFi queue 端猜測。Lab 12 內的實作檔案地圖、API contract 與
+反查表會帶你從每個結果定位責任邊界。
 
 ## 補充閱讀
 

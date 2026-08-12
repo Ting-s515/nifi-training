@@ -21,14 +21,12 @@ API 建立 Process Group、Parameter Context、Processor、Controller Service �
 | --- | --- |
 | `scripts/setup-flow.ps1` | 定義 mock data、建立 flow、設定 OAuth2 `InvokeHTTP`、連接 APISIX 與驗證 queue |
 | `../nifi-custom-processor/scripts/nifi-flow-helper.ps1` | 讀取 NiFi `.env`、取得 NiFi token、封裝 REST API 建立資源 |
-| `../../docs/nifi-training/12-nifi-apisix-spring-ingest.md` | 說明 NiFi、APISIX、Spring 的端到端責任與反查方法 |
-| `../../../spring-boot-training/spring-course-backend/src/main/java/dev/course/product/integration/apisix/ApisixAdminAdapter.java` | Spring 透過 APISIX Admin API 建立 Upstream、Route 與 path rewrite |
-| `../../../spring-boot-training/spring-course-backend/src/main/java/dev/course/product/controller/ProductImportController.java` | 接收 APISIX rewrite 後的商品匯入 request |
-| `../../../spring-boot-training/spring-course-backend/src/main/java/dev/course/product/service/ProductImportService.java` | 驗證後的 transaction、冪等與 conflict 業務邏輯 |
+| `../../docs/nifi-training/12-nifi-apisix-spring-ingest.md` | 本 repository 的完整端到端教材、API contract 與反查方法 |
 
-請先看 `setup-flow.ps1` 的 Processor 設定，再回到 Spring 的 adapter 與 Controller；
-這樣可以看出「NiFi 是呼叫端、APISIX 是 routing boundary、Spring 是 business boundary」，
-而不是把三者誤認成同一個 flow engine。
+請先看 `setup-flow.ps1` 的 Processor 設定，再依同一份 Lab 12 文件中的程式碼責任表反查
+Spring adapter 與 Controller。這樣可以看出「NiFi 是呼叫端、APISIX 是 routing boundary、
+Spring 是 business boundary」，而不是把三者誤認成同一個 flow engine；不需要跳到另一個
+repository 的課程文件。
 
 ```text
 setup-flow.ps1
@@ -61,9 +59,9 @@ Controller Service。這兩個設定就是 NiFi 連到 APISIX 的關鍵接點。
 5. `KeycloakTokenUri` 從 NiFi container 可以連線；不要填 `localhost`，因為那會指向
    NiFi container 自己。
 
-Lab 12 的完整前置設定、Keycloak Role、APISIX route 與 Spring API contract，請閱讀
-NiFi 課程的 [Lab 12](../../docs/nifi-training/12-nifi-apisix-spring-ingest.md) 與
-Spring 課程的 `docs/19-nifi-api-ingest.md`。
+Lab 12 文件本身已包含完整前置設定、Keycloak Role、APISIX route 與 Spring API contract；
+學員只需要閱讀 `../../docs/nifi-training/12-nifi-apisix-spring-ingest.md`，不需要再找另一個
+repository 的同一主題文件。
 
 ## 執行腳本
 

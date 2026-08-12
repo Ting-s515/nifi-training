@@ -6950,43 +6950,7 @@ foreach ($roleRequest in $roleRequests) {
 Endpoint 交換短效 token。這段不輸出完整 access token：</p>
 <pre><code class="language-powershell">$envValues = @{}
 Get-Content -LiteralPath .\.env | ForEach-Object {
-    if ($_ -match '^\s*([^#=]+)=(.*)
-      </main>
-    </div>
-    <dialog
-      class="diagram-dialog"
-      id="diagram-dialog"
-      aria-labelledby="diagram-dialog-title"
-    >
-      <section class="diagram-dialog-shell">
-        <header class="diagram-dialog-header">
-          <h2 id="diagram-dialog-title">Mermaid 圖表放大檢視</h2>
-          <div class="diagram-dialog-controls" aria-label="圖表縮放工具列">
-            <button type="button" data-diagram-action="zoom-out" aria-label="縮小圖表">
-              −
-            </button>
-            <output id="diagram-zoom-level" aria-live="polite">100%</output>
-            <button type="button" data-diagram-action="zoom-in" aria-label="放大圖表">
-              ＋
-            </button>
-            <button type="button" data-diagram-action="reset">重設</button>
-            <button type="button" data-diagram-action="close">關閉</button>
-          </div>
-        </header>
-        <div
-          class="diagram-viewport"
-          id="diagram-viewport"
-          aria-label="可拖曳的 Mermaid 圖表"
-        >
-          <div class="diagram-canvas" id="diagram-canvas"></div>
-        </div>
-        <p class="diagram-dialog-help">使用滾輪縮放，按住圖表拖曳移動，按 Esc 關閉。</p>
-      </section>
-    </dialog>
-    <script type="module" src="./app.mjs"></script>
-  </body>
-</html>
-) {
+    if ($_ -match '^\s*([^#=]+)=(.*)$') {
         $envValues[$Matches[1].Trim()] = $Matches[2]
     }
 }

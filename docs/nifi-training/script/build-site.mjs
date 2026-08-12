@@ -293,12 +293,12 @@ export async function buildSite({
   const resolvedSiteMetadata = { ...defaultSiteMetadata, ...siteMetadata };
   const template = await readFile(path.join(sourceDirectory, "index.html"), "utf8");
   const html = template
-    .replaceAll("{{SITE_NAME}}", escapeHtml(resolvedSiteMetadata.name))
-    .replaceAll("{{SITE_TITLE}}", escapeHtml(resolvedSiteMetadata.title))
-    .replaceAll("{{SITE_DESCRIPTION}}", escapeHtml(resolvedSiteMetadata.description))
-    .replace("{{DOCUMENT_COUNT}}", String(documents.length))
-    .replace("<!-- DOCUMENT_NAVIGATION -->", renderNavigation(documents))
-    .replace("<!-- DOCUMENT_CONTENT -->", renderContent(documents));
+    .replaceAll("{{SITE_NAME}}", () => escapeHtml(resolvedSiteMetadata.name))
+    .replaceAll("{{SITE_TITLE}}", () => escapeHtml(resolvedSiteMetadata.title))
+    .replaceAll("{{SITE_DESCRIPTION}}", () => escapeHtml(resolvedSiteMetadata.description))
+    .replace("{{DOCUMENT_COUNT}}", () => String(documents.length))
+    .replace("<!-- DOCUMENT_NAVIGATION -->", () => renderNavigation(documents))
+    .replace("<!-- DOCUMENT_CONTENT -->", () => renderContent(documents));
 
   await cleanOutputDirectory(outputDirectory);
   await mkdir(outputDirectory, { recursive: true });

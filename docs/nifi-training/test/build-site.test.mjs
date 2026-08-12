@@ -15,6 +15,10 @@ const fixtureDocuments = new Map([
     "入門.md",
     "# 入門指南\n\n入門文件內容唯一標記。\n\n```bash\nkubectl get pods --all-namespaces\n```\n\n請閱讀 [進階參考](進階.MD#操作流程)。\n",
   ],
+  [
+    "PowerShell.md",
+    "# PowerShell replacement\n\nPowerShell 文件內容唯一標記。\n\n```powershell\nif ($_ -match '^\\s*([^#=]+)=(.*)$') {\n  Write-Host 'ok'\n}\n```\n",
+  ],
   ["進階.MD", "# 進階參考\n\n## 操作流程\n\n進階文件內容唯一標記。\n"],
   ["A+B.md", "# 加號文件\n\n加號檔名內容。\n"],
   ["A B.md", "# 空白文件\n\n空白檔名內容。\n"],
@@ -121,6 +125,13 @@ test("切換文件時只操作既有 DOM，不重新取得 Markdown", async () =
   assert.match(source, /window\.addEventListener\("hashchange"/);
   assert.match(source, /panel\.hidden = panel !== activePanel/);
   assert.doesNotMatch(source, /\bfetch\s*\(/);
+});
+
+test("保留文件內容中的 JavaScript replacement pattern", () => {
+  const powershellLine = "if ($_ -match '^\\s*([^#=]+)=(.*)$') {";
+
+  assert.ok(html.includes(powershellLine));
+  assert.equal((html.match(/<\/main>/g) ?? []).length, 1);
 });
 
 test("保留文件搜尋與前後頁導覽", async () => {

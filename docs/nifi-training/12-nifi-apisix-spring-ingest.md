@@ -654,12 +654,14 @@ sensitive Parameter，不寫入 repository。
 
 `InvokeHTTP` 使用 `#{apisix.gateway-url}` 與 OAuth2 Controller Service。
 `#{...}` 是 Parameter Context reference；`${...}` 才是 FlowFile Attribute
-Expression Language。這樣可只替換環境參數，不修改 flow 結構。
+Expression Language。`Response Generation Required` 設為 `false`，讓 2xx 由
+`Original` relationship 進入 success；`Response` relationship auto-terminate，避免
+4xx response FlowFile 與 `No Retry` 重複分流。
 
 開啟 `https://localhost:8443/nifi`，確認 Process Group 綁定 Parameter Context、
 OAuth2 Controller Service 已 `Enabled`、URL 不是 9180 Admin URL，且
-`Response`、`No Retry`、`Retry`、`Failure` relationships
-與 retry queue 都存在。
+`Original`、`No Retry`、`Retry`、`Failure` relationships 與 retry queue 都存在；
+`Response` relationship 應設定為 auto-terminate。
 
 腳本內含三筆 mock data：`mock-1001` 與 `mock-1002` 為有效商品，
 `mock-1003` 的 `price=-1` 應進 HTTP 400 business validation。

@@ -110,12 +110,13 @@ OAuth2 Controller Service 需要完整設定：
 
 | NiFi 分支 | 條件 | 用途 |
 | --- | --- | --- |
-| `Response` → success LogAttribute | Spring 回傳 2xx | 觀察建立或冪等重送結果 |
+| `Original` → success LogAttribute | Spring 回傳 2xx | 觀察建立或冪等重送結果 |
+| `Response` → auto-terminate | `Response Generation Required=false` | 避免 4xx response FlowFile 重複進入 success |
 | `No Retry` → business validation | HTTP 400、409 | 區分欄位驗證與冪等衝突 |
 | `No Retry` → authentication | HTTP 401、403 | 檢查 Token、Role 與 Spring Security |
 | `No Retry` → other client failure | 其他 4xx | 保留未分類的 client error |
 | `Retry`、`Failure` → RetryFlowFile | 5xx 或連線失敗 | 最多重試三次 |
 | `retries_exceeded` | 重試仍失敗 | 進入人工排錯或告警流程 |
 
-腳本只驗證 queue 與 status attribute，不會輸出 Bearer token、Client Secret 或完整
-response body。
+腳本只驗證 queue、status attribute 與 response body attribute，不會輸出 Bearer token、
+Client Secret 或完整 response body。

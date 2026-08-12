@@ -142,8 +142,12 @@ function Assert-SuccessResponses {
             throw "成功分支 HTTP status 不符：$($attributes.'invokehttp.status.code')"
         }
 
-        $response = (Get-FlowFileContent -Context $context `
-                -ConnectionId $successConnection.id -FlowFileId $summary.uuid) | ConvertFrom-Json
+        # Response Generation Required=false 時，2xx response body 會寫入 Original 的 attribute。
+        $responseBody = $attributes.'api.response.body'
+        if ([string]::IsNullOrWhiteSpace($responseBody)) {
+            throw "sourceRecordId $($attributes.sourceRecordId) 缺少 API response body。"
+        }
+        $response = $responseBody | ConvertFrom-Json
         $duplicate = [bool]$response.data.duplicate
         if ($null -ne $ExpectedDuplicate -and $duplicate -ne $ExpectedDuplicate) {
             throw "sourceRecordId $($response.data.sourceRecordId) 的 duplicate 結果不符。"
@@ -361,9 +365,12 @@ try {
         "Request Failure Penalization Enabled" = "false"
         "Request Content-Type" = "application/json"
         "Response Body Attribute Name" = "api.response.body"
-        "Response Generation Required" = "true"
+        # API 回應要由 attribute 解析，需提高上限避免預設 256 bytes 截斷 JSON。
+        "Response Body Attribute Size" = "10240"
+        # 關閉 Response FlowFile，避免 4xx 同時進入 Response 與 No Retry，造成失敗資料被誤判為 success。
+        "Response Generation Required" = "false"
     } | Out-Null
-    Set-AutoTerminate -Context $context -ProcessorId $invoke.id -Relationships @("Original")
+    Set-AutoTerminate -Context $context -ProcessorId $invoke.id -Relationships @("Response")
 
     $route = New-Processor -Context $context -ParentGroupId $context.CreatedGroupId `
         -Name "Classify HTTP validation result" -Type $routeType.type -Bundle $routeType.bundle `
@@ -417,7 +424,7 @@ try {
     $updateInvokeConnection = New-Connection -Context $context -ParentGroupId $context.CreatedGroupId `
         -Name "attributes to HTTP" -SourceId $update.id -DestinationId $invoke.id -Relationships @("success")
     $successConnection = New-Connection -Context $context -ParentGroupId $context.CreatedGroupId `
-        -Name "HTTP success to LogAttribute" -SourceId $invoke.id -DestinationId $successLog.id -Relationships @("Response")
+        -Name "HTTP success to LogAttribute" -SourceId $invoke.id -DestinationId $successLog.id -Relationships @("Original")
     $noRetryRouteConnection = New-Connection -Context $context -ParentGroupId $context.CreatedGroupId `
         -Name "HTTP 4xx to classifier" -SourceId $invoke.id -DestinationId $route.id -Relationships @("No Retry")
     $retryConnection = New-Connection -Context $context -ParentGroupId $context.CreatedGroupId `

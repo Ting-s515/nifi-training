@@ -7190,11 +7190,13 @@ sensitive Parameter，不寫入 repository。</p>
 連線失敗進 <code>RetryFlowFile</code>，最後由 <code>LogAttribute</code> 保留觀察結果。</p>
 <p><code>InvokeHTTP</code> 使用 <code>#{apisix.gateway-url}</code> 與 OAuth2 Controller Service。
 <code>#{...}</code> 是 Parameter Context reference；<code>${...}</code> 才是 FlowFile Attribute
-Expression Language。這樣可只替換環境參數，不修改 flow 結構。</p>
+Expression Language。<code>Response Generation Required</code> 設為 <code>false</code>，讓 2xx 由
+<code>Original</code> relationship 進入 success；<code>Response</code> relationship auto-terminate，避免
+4xx response FlowFile 與 <code>No Retry</code> 重複分流。</p>
 <p>開啟 <code>https://localhost:8443/nifi</code>，確認 Process Group 綁定 Parameter Context、
 OAuth2 Controller Service 已 <code>Enabled</code>、URL 不是 9180 Admin URL，且
-<code>Response</code>、<code>No Retry</code>、<code>Retry</code>、<code>Failure</code> relationships
-與 retry queue 都存在。</p>
+<code>Original</code>、<code>No Retry</code>、<code>Retry</code>、<code>Failure</code> relationships 與 retry queue 都存在；
+<code>Response</code> relationship 應設定為 auto-terminate。</p>
 <p>腳本內含三筆 mock data：<code>mock-1001</code> 與 <code>mock-1002</code> 為有效商品，
 <code>mock-1003</code> 的 <code>price=-1</code> 應進 HTTP 400 business validation。
 <code>-VerifyReplay</code> 會重送相同資料，預期有效商品回 HTTP 200 且

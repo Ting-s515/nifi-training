@@ -16,7 +16,7 @@
         <header class="sidebar-header">
           <p class="sidebar-eyebrow">NiFi 實作入門課程</p>
           <h1>NiFi 實作入門課程</h1>
-          <p>共 18 份文件</p>
+          <p>共 19 份文件</p>
           <label class="document-search-label" for="document-search">搜尋課程文件</label>
           <input
             class="document-search"
@@ -118,6 +118,12 @@
               <a class="document-link" href="#doc-11-00-custom-processor-spi-3fd4f126">
                 <span class="document-title">Lab 11：當內建 Processor 不足時，使用 NiFi SPI 開發客製化 Processor</span>
                 <span class="document-file">11-00-custom-processor-spi.md</span>
+              </a>
+            </li>
+            <li>
+              <a class="document-link" href="#doc-12-nifi-apisix-spring-ingest-e752538c">
+                <span class="document-title">Lab 12：以 REST API 建立 NiFi → APISIX → Spring Boot 匯入流程</span>
+                <span class="document-file">12-nifi-apisix-spring-ingest.md</span>
               </a>
             </li>
           </ul>
@@ -288,6 +294,29 @@ success/failure <code>LogAttribute</code>，最後以 Queue 與 FlowFile API 驗
 group，使用 <code>-Cleanup</code>。<code>-ReplaceExisting</code> 會刪除同名舊群組，僅適合課程測試流程；若同名
 群組超過一個，腳本會停止並要求先人工確認。課程中看到的 NAR 版本為 <code>2.1.0</code>，若自行修改 Processor，
 請同步更新 Maven version、build script 預期檔名與部署腳本驗證的 bundle version。</p>
+<h3 id="doc-readme-b3356305--lab-12-的-api-整合初始化">Lab 12 的 API 整合初始化</h3>
+<p>Lab 12 不需要重新建置 Lab 11 的 JAR/NAR。它使用 NiFi runtime 已提供的
+<code>GenerateFlowFile</code>、<code>SplitJson</code>、<code>UpdateAttribute</code>、<code>InvokeHTTP</code>、<code>RouteOnAttribute</code>、
+<code>RetryFlowFile</code> 與 <code>StandardOauth2AccessTokenProvider</code>，由 REST API 腳本建立完整 flow。</p>
+<p>執行前，請先完成 Spring 課程的 APISIX route 與 Keycloak <code>nifi-ingest</code> Role，讓
+<code>products-ingest</code> endpoint 轉送到 <code>/api/v1/integrations/products</code>。完整的 Spring API、
+Role、route 與 Secret 記憶體管理步驟，請閱讀 Spring 專案的
+<code>docs/19-nifi-api-ingest.md</code>，再回到 <a href="#doc-12-nifi-apisix-spring-ingest-e752538c">Lab 12：NiFi → APISIX → Spring Boot 匯入流程</a>。</p>
+<p>腳本需要 Keycloak Client Secret，但不把 Secret 寫入 repository：</p>
+<pre><code class="language-powershell">$keycloakTokenUri = 'replace-with-keycloak-token-uri'
+
+.\examples\nifi-api-ingest\scripts\setup-flow.ps1 `
+  -KeycloakTokenUri $keycloakTokenUri `
+  -KeycloakClientSecret $targetClientSecret `
+  -ReplaceExisting `
+  -RunOnce `
+  -VerifyReplay
+</code></pre>
+<p><code>$targetClientSecret</code> 應沿用 Spring Provision API 回傳、目前 PowerShell session 中的
+變數；不要貼出或提交實際 Secret。腳本會建立 Parameter Context、OAuth2 Controller
+Service、mock data flow、APISIX HTTP 呼叫、400/401/403 分流與 5xx retry。第一次執行
+應觀察兩筆有效商品與一筆 400 驗證失敗；<code>-VerifyReplay</code> 會再送相同
+<code>sourceRecordId</code>，確認第二次有效資料回傳 200 且 <code>duplicate=true</code>。</p>
 <p>注意：課程中的 <code>docker compose ...</code> 指令都要在專案根目錄執行，也就是目前包含 <code>docker-compose.yaml</code> 的工作目錄。若在其他目錄執行，可能會出現 <code>no such service: nifi</code> 或找不到 compose 專案。</p>
 <h2 id="doc-readme-b3356305--產生與啟動雙欄式-html-閱讀器">產生與啟動雙欄式 HTML 閱讀器</h2>
 <p><code>docs/nifi-training</code> 是由 Markdown 在 build 時產生的純靜態文件網站。左欄提供分類目錄、搜尋與前後頁切換，右欄顯示課程內容；程式碼區塊支援複製，Mermaid 圖表支援放大、縮放與拖曳。</p>
@@ -337,6 +366,7 @@ npm.cmd --prefix ./docs/nifi-training run build
 <li><a href="#doc-09-clustering-ce1392d8">Lab 09：NiFi Cluster 入門與多節點執行觀念</a></li>
 <li><a href="#doc-10-query-format-expression-language-d9fcd277">Lab 10：Query、Formatter 與 Expression Language 實戰</a></li>
 <li><a href="#doc-11-00-custom-processor-spi-3fd4f126">Lab 11：當內建 Processor 不足時，使用 NiFi SPI 開發客製化 Processor</a></li>
+<li><a href="#doc-12-nifi-apisix-spring-ingest-e752538c">Lab 12：以 REST API 建立 NiFi → APISIX → Spring Boot 匯入流程</a></li>
 <li><a href="#doc-99-cheatsheet-c43c42bd">速查表：常用 Processor 與排錯關鍵字</a></li>
 </ol>
 <h2 id="doc-readme-b3356305--補充閱讀">補充閱讀</h2>
@@ -349,6 +379,11 @@ npm.cmd --prefix ./docs/nifi-training run build
 <pre><code class="language-text">examples/nifi-custom-processor/
 </code></pre>
 <p>其中包含 Processor 原始碼、<code>nifi-mock</code> 測試、NAR 打包與 REST API flow 建立腳本。</p>
+<p>Lab 12 的 REST API 建流範例位於：</p>
+<pre><code class="language-text">examples/nifi-api-ingest/
+</code></pre>
+<p>其中包含不需要 NAR 的內建 Processor flow、OAuth2 Parameter Context 設定、APISIX
+Gateway 呼叫、HTTP 狀態分流與 retry 驗證腳本。</p>
 <h2 id="doc-readme-b3356305--每個-lab-的操作原則">每個 Lab 的操作原則</h2>
 <ul>
 <li>每個 Lab 建議建立獨立 Process Group，例如 <code>training-lab-01</code>。</li>
@@ -399,6 +434,8 @@ npm.cmd --prefix ./docs/nifi-training run build
 <li>使用 NiFi 公開 Java API 實作、測試並打包一個 custom Processor NAR。</li>
 <li>分辨 Java JAR 的程式碼產物責任，以及 NiFi NAR 的部署封裝責任。</li>
 <li>透過 REST API 上傳 NAR、建立 Processor 與 connection、執行 <code>RUN_ONCE</code> 並讀回 FlowFile attribute。</li>
+<li>透過 REST API 建立 Parameter Context、OAuth2 Controller Service 與內建 Processor flow。</li>
+<li>讓 NiFi mock data 經 APISIX Gateway 呼叫 Spring Boot API，依 HTTP status 分流、重試與驗證冪等結果。</li>
 <li>用 queue、bulletin、provenance、logs 找錯。</li>
 </ul>
         </article>
@@ -6421,6 +6458,338 @@ relationship，也要同步更新下游 connection、auto-terminate 與部署驗
 <li><a href="https://nifi.apache.org/components/org.apache.nifi.json.JsonTreeReader/" target="_blank" rel="noreferrer noopener">JsonTreeReader component</a></li>
 <li><a href="https://nifi.apache.org/components/org.apache.nifi.processors.standard.ValidateRecord/" target="_blank" rel="noreferrer noopener">ValidateRecord component</a></li>
 <li><a href="https://github.com/apache/nifi/tree/rel/nifi-2.9.0" target="_blank" rel="noreferrer noopener">NiFi 2.9.0 source tag</a></li>
+</ul>
+        </article>
+        <article
+          class="document-panel markdown-body"
+          id="doc-12-nifi-apisix-spring-ingest-e752538c"
+          data-document-path="12-nifi-apisix-spring-ingest.md"
+          aria-label="Lab 12：以 REST API 建立 NiFi → APISIX → Spring Boot 匯入流程"
+          hidden
+        >
+<h1 id="doc-12-nifi-apisix-spring-ingest-e752538c--lab-12以-rest-api-建立-nifi--apisix--spring-boot-匯入流程">Lab 12：以 REST API 建立 NiFi → APISIX → Spring Boot 匯入流程</h1>
+<p>目標：用 NiFi 內建 Processor 模擬外部資料來源，透過 OAuth2 Client Credentials 取得
+Keycloak Bearer token，呼叫 APISIX Gateway，再由 Spring Boot 驗證並寫入 SQLite。</p>
+<p>預估時間：60～90 分鐘。
+前置條件：完成 <a href="#doc-00-basic-terms-12370c74">Lab 00：基本名詞與環境</a>、<a href="#doc-11-00-custom-processor-spi-3fd4f126">Lab 11：NiFi SPI
+自訂 Processor</a>，並完成 Spring 課程的
+<a href="../../../spring-boot-training/docs/19-nifi-api-ingest.md"><code>docs/19-nifi-api-ingest.md</code></a>。</p>
+<h2 id="doc-12-nifi-apisix-spring-ingest-e752538c--你會做出什麼">你會做出什麼</h2>
+<p>本 Lab 不新增 NAR，因為本次資料來源切分、HTTP 呼叫、狀態分流與重試都能由 NiFi
+公開 Processor API 完成。你會用 PowerShell 將 NiFi REST API 封裝成可重複執行的部署腳本：</p>
+<div class="mermaid">flowchart LR
+    source["NiFi GenerateFlowFile&#x3C;br>Mock data"] --> split["SplitJson&#x3C;br>one record per FlowFile"]
+    split --> update["UpdateAttribute&#x3C;br>mark source"]
+    update --> invoke["InvokeHTTP&#x3C;br>OAuth2 token"]
+    invoke --> gateway["APISIX Data Plane&#x3C;br>9080"]
+    gateway --> api["Spring Boot&#x3C;br>POST integrations products"]
+    api --> service["ProductImportService&#x3C;br>idempotency"]
+    service --> repository["Repository&#x3C;br>JDBC"]
+    repository --> database["SQLite&#x3C;br>product and import mapping"]
+    invoke --> success["2xx&#x3C;br>success LogAttribute"]
+    invoke --> validation["400 or 409&#x3C;br>business validation"]
+    invoke --> auth["401 or 403&#x3C;br>authentication"]
+    invoke --> retry["5xx or network&#x3C;br>RetryFlowFile"]
+</div>
+<p>完成後，你應能從 NiFi UI、FlowFile attributes、Spring API response 與 SQLite repository
+反查同一筆資料經過哪些邊界，以及每個錯誤是在誰的責任範圍內產生。</p>
+<h2 id="doc-12-nifi-apisix-spring-ingest-e752538c--開始前先知道這條-flow-有兩種不同的-token">開始前先知道：這條 flow 有兩種不同的 token</h2>
+<p>這個 Lab 同時出現兩種 token，目的與發行者不同，不要混用：</p>
+<table>
+<thead>
+<tr>
+<th>Token</th>
+<th>發行者</th>
+<th>用途</th>
+<th>放在哪裡</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>NiFi access token</td>
+<td>NiFi</td>
+<td>腳本呼叫 <code>/nifi-api</code> 建立 flow</td>
+<td>PowerShell <code>$context.AccessToken</code></td>
+</tr>
+<tr>
+<td>Keycloak access token</td>
+<td>Keycloak</td>
+<td>NiFi runtime 呼叫 APISIX/Spring</td>
+<td>OAuth2 Controller Service cache</td>
+</tr>
+</tbody>
+</table>
+<p>部署腳本先讀取根目錄 <code>.env</code> 的 <code>NIFI_USERNAME</code> 與 <code>NIFI_PASSWORD</code>，呼叫：</p>
+<pre><code class="language-text">POST /nifi-api/access/token
+</code></pre>
+<p>NiFi 驗證成功後回傳 NiFi JWT。後續建立 Process Group、Processor、Controller Service
+與 Connection 的 REST request 都使用：</p>
+<pre><code class="language-http">Authorization: Bearer &#x3C;NiFi access token>
+</code></pre>
+<p>Flow 執行時則由 <code>StandardOauth2AccessTokenProvider</code> 以 Parameter Context 的 Client ID、
+Client Secret 與 Token URI 呼叫 Keycloak。Keycloak 回傳的 Bearer token 只會送給 APISIX
+Gateway；它不是部署腳本使用的 NiFi token。</p>
+<h2 id="doc-12-nifi-apisix-spring-ingest-e752538c--先理解本-lab-的架構責任">先理解本 Lab 的架構責任</h2>
+<pre><code class="language-text">NiFi container
+  ├─ host.docker.internal:9080
+  │    └─ APISIX Data Plane
+  │         └─ Spring Boot :8080 /api/v1/integrations/products
+  └─ Keycloak Token URI
+</code></pre>
+<ul>
+<li>NiFi container 內的 <code>localhost</code> 是 NiFi 自己，不是 Windows 主機上的 APISIX 或 Spring。</li>
+<li><code>host.docker.internal:9080</code> 代表從 NiFi container 連到主機映射的 APISIX Data Plane。</li>
+<li>APISIX 只負責匹配 <code>/gateway/products-ingest</code> 並轉送 request；Spring endpoint 與
+business validation 仍由 Spring Boot 負責。</li>
+<li><code>sourceRecordId</code> 是外部資料的冪等鍵。相同內容重送會回傳 200；相同 ID 但內容不同
+會回傳 409，避免把同一外部紀錄悄悄覆蓋成另一筆商品。</li>
+</ul>
+<h2 id="doc-12-nifi-apisix-spring-ingest-e752538c--step-0確認-spring-與-apisix-前置設定">Step 0：確認 Spring 與 APISIX 前置設定</h2>
+<p>請先依 Spring 課程的 <a href="../../../spring-boot-training/docs/19-nifi-api-ingest.md">Lab 19：NiFi API Ingest</a>
+完成：</p>
+<ol>
+<li>啟動 APISIX 與 Spring Boot <code>local,apisix</code> profile。</li>
+<li>在 Keycloak <code>spring-course-demo</code> Client 的 Service Account 建立或沿用
+<code>gateway-admin</code> 與 <code>nifi-ingest</code> Role。</li>
+<li>透過 Spring Provision API 建立 <code>products-ingest</code> endpoint：
+<code>POST /api/v1/integrations/products</code>。</li>
+<li>保留 Provision 回傳的 Client Secret 在同一個 PowerShell session；不要貼到聊天、
+Git 或課程檔案。</li>
+</ol>
+<p>可先確認 APISIX Gateway URL 與 Spring backend health：</p>
+<pre><code class="language-powershell">Invoke-RestMethod -Uri http://localhost:8080/actuator/health
+
+# 這裡的 URL 是由 APISIX route 的 endpoint key 組成；從 NiFi container 呼叫時，
+# setup-flow.ps1 會使用 host.docker.internal，而不是 localhost。
+$gatewayUrl = 'http://host.docker.internal:9080/gateway/products-ingest'
+</code></pre>
+<p>若尚未建立 route，NiFi flow 會收到 404 或 401；這不是 NiFi Processor 本身的錯誤，
+請先檢查 Spring Provision API 與 APISIX route。</p>
+<h2 id="doc-12-nifi-apisix-spring-ingest-e752538c--step-1準備執行時參數">Step 1：準備執行時參數</h2>
+<p>執行位置：<code>nifi-training</code> repository root。</p>
+<p>以下只把非 Secret 的 Token URI 放進變數；<code>$targetClientSecret</code> 應沿用 Spring Lab
+Provision response 的記憶體變數：</p>
+<pre><code class="language-powershell">$keycloakTokenUri = 'replace-with-keycloak-token-uri'
+$targetClientId = 'spring-course-demo'
+$targetClientSecret = 'replace-with-client-secret-from-provision-response'
+</code></pre>
+<p>真實練習時，請把 placeholder 換成目前 Keycloak 環境的值，但不要把 Secret 寫入
+<code>.ps1</code>、<code>.env.sample</code>、Markdown 或 command transcript。腳本會把 Secret 送進 NiFi
+Parameter Context 的 sensitive parameter，並且不在輸出中顯示。</p>
+<h2 id="doc-12-nifi-apisix-spring-ingest-e752538c--step-2以-rest-api-建立-process-group-與-parameter-context">Step 2：以 REST API 建立 Process Group 與 Parameter Context</h2>
+<p>執行：</p>
+<pre><code class="language-powershell">.\examples\nifi-api-ingest\scripts\setup-flow.ps1 `
+  -KeycloakTokenUri $keycloakTokenUri `
+  -KeycloakClientId $targetClientId `
+  -KeycloakClientSecret $targetClientSecret `
+  -ReplaceExisting
+</code></pre>
+<p>腳本會使用 NiFi 公開 REST API 完成下列動作：</p>
+<ol>
+<li>取得 NiFi access token。</li>
+<li>找到同名 Process Group；只有指定 <code>-ReplaceExisting</code> 才會停止、清空並刪除舊群組。</li>
+<li>建立新的 <code>training-lab-12-api-ingest</code> Process Group。</li>
+<li>建立或更新 <code>training-lab-12-api-ingest-parameters</code> Parameter Context。</li>
+<li>將 Parameter Context 綁定到 Process Group。</li>
+<li>建立 OAuth2 Controller Service，並使用 <code>#{keycloak.client-secret}</code> 參照 sensitive
+parameter。</li>
+</ol>
+<p>這裡使用 Parameter Context 的原因，是把環境值與 flow 結構分離。Processor property
+中的 <code>#{apisix.gateway-url}</code> 是 NiFi Parameter reference；<code>${...}</code> 則是 FlowFile
+attribute 的 Expression Language，兩者不要混淆。</p>
+<h2 id="doc-12-nifi-apisix-spring-ingest-e752538c--step-3建立並觀察資料流">Step 3：建立並觀察資料流</h2>
+<p>腳本建立的元件與責任如下：</p>
+<table>
+<thead>
+<tr>
+<th>元件</th>
+<th>為什麼需要</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>GenerateFlowFile</code></td>
+<td>用固定 JSON array 模擬外部資料來源，讓每次練習可重現</td>
+</tr>
+<tr>
+<td><code>SplitJson</code></td>
+<td>把一個 array 拆成三個獨立商品 FlowFile</td>
+</tr>
+<tr>
+<td><code>UpdateAttribute</code></td>
+<td>標記資料來源，讓下游 log 與排錯可追蹤</td>
+</tr>
+<tr>
+<td><code>InvokeHTTP</code></td>
+<td>以 POST + JSON body 呼叫 APISIX，並要求 OAuth2 token</td>
+</tr>
+<tr>
+<td><code>RouteOnAttribute</code></td>
+<td>依 <code>invokehttp.status.code</code> 將 400/409、401/403 與其他 4xx 分開</td>
+</tr>
+<tr>
+<td><code>RetryFlowFile</code></td>
+<td>只處理 5xx 或連線失敗，最多重試三次</td>
+</tr>
+<tr>
+<td><code>LogAttribute</code></td>
+<td>保留成功、驗證失敗、驗證錯誤與重試耗盡等觀察點</td>
+</tr>
+</tbody>
+</table>
+<p>開啟 <code>https://localhost:8443/nifi</code>，進入 <code>training-lab-12-api-ingest</code>，依序檢查：</p>
+<ol>
+<li>Process Group 是否綁定正確 Parameter Context。</li>
+<li>OAuth2 Controller Service 是否為 <code>Enabled</code>，且 Client Secret property 顯示為敏感值。</li>
+<li><code>InvokeHTTP</code> 的 <code>HTTP URL</code> 是否為 <code>#{apisix.gateway-url}</code>。</li>
+<li><code>InvokeHTTP</code> 是否連接 <code>Response</code>、<code>No Retry</code>、<code>Retry</code> 與 <code>Failure</code> relationships。</li>
+<li><code>RetryFlowFile</code> 的 <code>Maximum Retries</code> 是否為 3。</li>
+<li>每個 <code>LogAttribute</code> 下游 queue 是否清楚表示成功、業務失敗、認證失敗或重試耗盡。</li>
+</ol>
+<h2 id="doc-12-nifi-apisix-spring-ingest-e752538c--step-4執行一次並驗證-spring-業務結果">Step 4：執行一次並驗證 Spring 業務結果</h2>
+<p>加入 <code>-RunOnce</code>：</p>
+<pre><code class="language-powershell">.\examples\nifi-api-ingest\scripts\setup-flow.ps1 `
+  -KeycloakTokenUri $keycloakTokenUri `
+  -KeycloakClientId $targetClientId `
+  -KeycloakClientSecret $targetClientSecret `
+  -ReplaceExisting `
+  -RunOnce
+</code></pre>
+<p>腳本會先暫時啟動下游 worker，再以 REST API 對 <code>GenerateFlowFile</code> 執行 <code>RUN_ONCE</code>，
+最後停止 worker 並讀取 terminal queue。mock data 包含：</p>
+<table>
+<thead>
+<tr>
+<th>sourceRecordId</th>
+<th>內容</th>
+<th>預期結果</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>mock-1001</code></td>
+<td>有效商品</td>
+<td>HTTP 201 / <code>code=A003</code>，首次匯入；若 SQLite 已有資料則為 HTTP 200</td>
+</tr>
+<tr>
+<td><code>mock-1002</code></td>
+<td>有效商品</td>
+<td>HTTP 201 / <code>code=A003</code>，首次匯入；若 SQLite 已有資料則為 HTTP 200</td>
+</tr>
+<tr>
+<td><code>mock-1003</code></td>
+<td><code>price=-1</code></td>
+<td>HTTP 400 / <code>code=E005</code>，進入 business validation queue</td>
+</tr>
+</tbody>
+</table>
+<p>第一次執行成功後，在 Spring API 可確認商品列表：</p>
+<pre><code class="language-powershell">Invoke-RestMethod -Uri http://localhost:8080/api/v1/products
+</code></pre>
+<p>真正的 repository 寫入由 Spring 的 <code>ProductImportService</code>、<code>ProductRepository</code> 與
+<code>ProductImportRepository</code> 完成；NiFi 不直接連線 Spring 的 SQLite 檔案。</p>
+<h2 id="doc-12-nifi-apisix-spring-ingest-e752538c--step-5驗證冪等重送">Step 5：驗證冪等重送</h2>
+<p>加入 <code>-VerifyReplay</code>。此參數會隱含執行第一次 ingest，再用相同 mock data 重送一次：</p>
+<pre><code class="language-powershell">.\examples\nifi-api-ingest\scripts\setup-flow.ps1 `
+  -KeycloakTokenUri $keycloakTokenUri `
+  -KeycloakClientId $targetClientId `
+  -KeycloakClientSecret $targetClientSecret `
+  -ReplaceExisting `
+  -RunOnce `
+  -VerifyReplay
+</code></pre>
+<p>第二次的兩筆有效資料應符合：</p>
+<ul>
+<li>HTTP 200。</li>
+<li>response <code>data.duplicate=true</code>。</li>
+<li><code>product</code> 的 id 不變。</li>
+<li><code>product_import.source_record_id</code> 不會新增第二筆 mapping。</li>
+</ul>
+<p>如果用相同 <code>sourceRecordId</code> 但修改 <code>price</code> 或 <code>name</code>，Spring 應回傳 HTTP 409 / <code>E303</code>。
+這個結果要進入業務衝突處理，不應被 RetryFlowFile 當成暫時性網路錯誤重試。</p>
+<h2 id="doc-12-nifi-apisix-spring-ingest-e752538c--練習題">練習題</h2>
+<ol>
+<li>將 <code>mock-1003</code> 的負價格改成缺少 <code>name</code>，確認 Spring 仍回傳 HTTP 400，但錯誤欄位
+由 <code>@NotBlank</code> 驗證處理。</li>
+<li>暫時把 Gateway URL 改成不存在的 path，觀察 <code>No Retry</code> 的其他 4xx 分支。</li>
+<li>暫時把 Keycloak Client Secret 改錯，觀察 OAuth2 Controller Service bulletin、
+<code>InvokeHTTP</code> 的 <code>401/403</code> 與 flow 的責任邊界。</li>
+<li>暫時把 APISIX port 改成未監聽的 port，觀察 <code>Failure</code> → <code>RetryFlowFile</code> →
+<code>retries_exceeded</code> 的 queue 與 retry attributes。</li>
+<li>思考若外部資料改由 <code>ExecuteSQLRecord</code> 產生，哪一段可以保持不變？答案應是每一筆
+record 仍需整理成同一個 API contract，<code>InvokeHTTP</code> 之後的驗證、重試與分流可以重用。</li>
+</ol>
+<h2 id="doc-12-nifi-apisix-spring-ingest-e752538c--完成檢查">完成檢查</h2>
+<ul class="contains-task-list">
+<li class="task-list-item"><input type="checkbox" disabled> 能分辨 NiFi access token 與 Keycloak access token 的發行者與用途。</li>
+<li class="task-list-item"><input type="checkbox" disabled> 能從腳本反查 <code>POST /nifi-api/access/token</code>、Parameter Context 與 Process Group API。</li>
+<li class="task-list-item"><input type="checkbox" disabled> 能說明 <code>host.docker.internal</code> 是因為 request 從 NiFi container 發出。</li>
+<li class="task-list-item"><input type="checkbox" disabled> 能說明 <code>InvokeHTTP</code> 的 400/409 不應進入 retry，5xx/連線失敗才進入 retry。</li>
+<li class="task-list-item"><input type="checkbox" disabled> 能在 Spring API 看到兩筆有效商品，並在 NiFi queue 看到一筆 400 驗證失敗。</li>
+<li class="task-list-item"><input type="checkbox" disabled> 能以第二次執行證明 <code>sourceRecordId</code> 冪等，而不是只看 HTTP status。</li>
+<li class="task-list-item"><input type="checkbox" disabled> 能指出哪一層負責 mock data、Gateway routing、JWT、business validation 與 repository。</li>
+</ul>
+<h2 id="doc-12-nifi-apisix-spring-ingest-e752538c--排錯提示">排錯提示</h2>
+<table>
+<thead>
+<tr>
+<th>現象</th>
+<th>先檢查</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>401</code></td>
+<td>Keycloak token URI、Client Secret、issuer、Bearer token 是否由 <code>nifi-ingest</code> Client 取得</td>
+</tr>
+<tr>
+<td><code>403</code></td>
+<td><code>spring-course-demo</code> Service Account 是否有 <code>nifi-ingest</code> Role；Spring <code>RolePermissionMapping</code> 是否允許 POST</td>
+</tr>
+<tr>
+<td><code>404</code></td>
+<td>APISIX 是否建立 <code>products-ingest</code> route，且 proxy-rewrite target 為 <code>/api/v1/integrations/products</code></td>
+</tr>
+<tr>
+<td><code>400</code></td>
+<td>先看 Spring response 與 <code>code</code>；這是 request/business validation，不是 NiFi 連線錯誤</td>
+</tr>
+<tr>
+<td><code>409</code></td>
+<td><code>sourceRecordId</code> 已存在但 payload 不同；確認外部資料是否重複或 mapping 規則是否正確</td>
+</tr>
+<tr>
+<td><code>5xx</code> 或 <code>Failure</code></td>
+<td>APISIX 9080 是否可從 NiFi container 連線，確認 <code>host.docker.internal</code> 與 port</td>
+</tr>
+<tr>
+<td>Controller Service invalid</td>
+<td>Parameter Context 是否綁定、敏感參數是否提供、Token URI 是否可由 container 連線</td>
+</tr>
+<tr>
+<td>腳本說同名 Process Group 已存在</td>
+<td>先確認是否為課程群組，再使用 <code>-ReplaceExisting</code>；不要直接刪除不屬於課程的群組</td>
+</tr>
+</tbody>
+</table>
+<h2 id="doc-12-nifi-apisix-spring-ingest-e752538c--本-lab-的學習重點回顧">本 Lab 的學習重點回顧</h2>
+<p>本 Lab 的重點不是把每個 Processor 都改成 Java，而是學會判斷責任邊界：</p>
+<ol>
+<li>NiFi 用公開 REST API 建立可重現 flow，並以 Parameter Context 管理環境差異。</li>
+<li><code>InvokeHTTP</code> 使用官方 OAuth2 Controller Service 取得 runtime token，不把 Bearer
+token 寫死在 FlowFile 或腳本中。</li>
+<li>APISIX 是外部入口與 routing layer；它不取代 Spring endpoint 或 business rules。</li>
+<li>Spring API 以 validation、transaction、Repository 與 <code>product_import</code> mapping
+實作可測試的冪等匯入。</li>
+<li>只有暫時性失敗進 retry；輸入錯誤、認證錯誤與資源衝突要進可觀察的業務分支。</li>
+<li>這條 flow 可以將 <code>GenerateFlowFile</code> 替換成資料庫、Queue 或其他外部來源，而不必
+改變下游 API contract；這就是把整合流程拆成可重用邊界的原因。</li>
+</ol>
+<h2 id="doc-12-nifi-apisix-spring-ingest-e752538c--官方文件">官方文件</h2>
+<ul>
+<li><a href="https://nifi.apache.org/components/org.apache.nifi.processors.standard.InvokeHTTP/" target="_blank" rel="noreferrer noopener">NiFi InvokeHTTP</a></li>
+<li><a href="https://nifi.apache.org/components/org.apache.nifi.oauth2.StandardOauth2AccessTokenProvider/" target="_blank" rel="noreferrer noopener">NiFi StandardOauth2AccessTokenProvider</a></li>
+<li><a href="#doc-supplement-api-endpoints-fa3546fe">NiFi REST API 補充清單</a></li>
 </ul>
         </article>
         <article

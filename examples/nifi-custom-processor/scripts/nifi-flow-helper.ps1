@@ -14,6 +14,7 @@ function New-NifiContext {
         CreatedGroupId = $null
         CreatedProcessorIds = [System.Collections.Generic.List[string]]::new()
         CreatedControllerServiceIds = [System.Collections.Generic.List[string]]::new()
+        CreatedParameterContextIds = [System.Collections.Generic.List[string]]::new()
     }
 }
 
@@ -290,9 +291,7 @@ function Set-ControllerServiceProperties {
         revision = $current.revision
         component = @{
             id = $current.id
-            config = @{
-                properties = $Properties
-            }
+            properties = $Properties
         }
     }
     return Invoke-NifiJson -Context $Context -Method "PUT" -Path "/controller-services/$ControllerServiceId" -Body $body
@@ -312,6 +311,123 @@ function Set-ControllerServiceState {
         state = $State
     }
     Invoke-NifiJson -Context $Context -Method "PUT" -Path "/controller-services/$ControllerServiceId/run-status" -Body $body | Out-Null
+}
+
+function Get-NifiParameterContextEntity {
+    param(
+        [object]$Context,
+        [string]$ParameterContextId
+    )
+
+    return Invoke-NifiJson -Context $Context -Method "GET" -Path "/parameter-contexts/$ParameterContextId"
+}
+
+function Get-NifiParameterContexts {
+    param([object]$Context)
+
+    $entity = Invoke-NifiJson -Context $Context -Method "GET" -Path "/flow/parameter-contexts"
+    return @($entity.parameterContexts | Where-Object {
+            $null -ne $_ -and $null -ne $_.component -and -not [string]::IsNullOrWhiteSpace($_.component.name)
+        })
+}
+
+function Get-NifiParameterContextByName {
+    param(
+        [object]$Context,
+        [string]$Name
+    )
+
+    return @(Get-NifiParameterContexts -Context $Context | Where-Object { $_.component.name -eq $Name })
+}
+
+function ConvertTo-NifiParameterItems {
+    param([object[]]$Parameters)
+
+    return @($Parameters | ForEach-Object {
+            @{ parameter = @{
+                    name = $_.Name
+                    description = if ($null -eq $_.Description) { "" } else { $_.Description }
+                    sensitive = [bool]$_.Sensitive
+                    value = $_.Value
+                } }
+        })
+}
+
+function New-NifiParameterContext {
+    param(
+        [object]$Context,
+        [string]$Name,
+        [string]$Description,
+        [object[]]$Parameters
+    )
+
+    $body = @{
+        revision = New-Revision -Context $Context
+        component = @{
+            name = $Name
+            description = if ($null -eq $Description) { "" } else { $Description }
+            parameters = ConvertTo-NifiParameterItems -Parameters $Parameters
+        }
+    }
+
+    $entity = Invoke-NifiJson -Context $Context -Method "POST" -Path "/parameter-contexts" -Body $body
+    $Context.CreatedParameterContextIds.Add($entity.id)
+    return $entity
+}
+
+function Set-NifiParameterContext {
+    param(
+        [object]$Context,
+        [string]$ParameterContextId,
+        [string]$Name,
+        [string]$Description,
+        [object[]]$Parameters
+    )
+
+    $current = Get-NifiParameterContextEntity -Context $Context -ParameterContextId $ParameterContextId
+    $body = @{
+        revision = $current.revision
+        component = @{
+            id = $ParameterContextId
+            name = $Name
+            description = if ($null -eq $Description) { "" } else { $Description }
+            parameters = ConvertTo-NifiParameterItems -Parameters $Parameters
+        }
+    }
+
+    return Invoke-NifiJson -Context $Context -Method "PUT" `
+        -Path "/parameter-contexts/$ParameterContextId" -Body $body
+}
+
+function Set-NifiProcessGroupParameterContext {
+    param(
+        [object]$Context,
+        [string]$ProcessGroupId,
+        [string]$ParameterContextId
+    )
+
+    $current = Invoke-NifiJson -Context $Context -Method "GET" -Path "/process-groups/$ProcessGroupId"
+    $body = @{
+        revision = $current.revision
+        component = @{
+            id = $ProcessGroupId
+            parameterContext = @{ id = $ParameterContextId }
+        }
+    }
+
+    return Invoke-NifiJson -Context $Context -Method "PUT" `
+        -Path "/process-groups/$ProcessGroupId" -Body $body
+}
+
+function Remove-NifiParameterContext {
+    param(
+        [object]$Context,
+        [string]$ParameterContextId
+    )
+
+    $current = Get-NifiParameterContextEntity -Context $Context -ParameterContextId $ParameterContextId
+    $deletePath = "/parameter-contexts/${ParameterContextId}?version=$($current.revision.version)&clientId=$($Context.ClientId)"
+    Invoke-NifiJson -Context $Context -Method "DELETE" -Path $deletePath | Out-Null
 }
 
 function Wait-ControllerServiceState {
@@ -551,6 +667,7 @@ function Wait-QueueHasFlowFile {
     param(
         [object]$Context,
         [string]$ConnectionId,
+        [int]$MinimumCount = 1,
         [int]$TimeoutSeconds = 60
     )
 
@@ -573,7 +690,7 @@ function Wait-QueueHasFlowFile {
                     throw "Queue listing 失敗：$($listingRequest.failureReason)"
                 }
                 $summaries = @($listingRequest.flowFileSummaries)
-                if ($summaries.Count -gt 0) {
+                if ($summaries.Count -ge $MinimumCount) {
                     return $summaries
                 }
                 break

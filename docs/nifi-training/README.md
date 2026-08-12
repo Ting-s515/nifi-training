@@ -145,6 +145,36 @@ group，使用 `-Cleanup`。`-ReplaceExisting` 會刪除同名舊群組，僅適
 群組超過一個，腳本會停止並要求先人工確認。課程中看到的 NAR 版本為 `2.1.0`，若自行修改 Processor，
 請同步更新 Maven version、build script 預期檔名與部署腳本驗證的 bundle version。
 
+### Lab 12 的 API 整合初始化
+
+Lab 12 不需要重新建置 Lab 11 的 JAR/NAR。它使用 NiFi runtime 已提供的
+`GenerateFlowFile`、`SplitJson`、`UpdateAttribute`、`InvokeHTTP`、`RouteOnAttribute`、
+`RetryFlowFile` 與 `StandardOauth2AccessTokenProvider`，由 REST API 腳本建立完整 flow。
+
+執行前，請先完成 Spring 課程的 APISIX route 與 Keycloak `nifi-ingest` Role，讓
+`products-ingest` endpoint 轉送到 `/api/v1/integrations/products`。完整的 Spring API、
+Role、route 與 Secret 記憶體管理步驟，請閱讀 Spring 專案的
+`docs/19-nifi-api-ingest.md`，再回到 [Lab 12：NiFi → APISIX → Spring Boot 匯入流程](12-nifi-apisix-spring-ingest.md)。
+
+腳本需要 Keycloak Client Secret，但不把 Secret 寫入 repository：
+
+```powershell
+$keycloakTokenUri = 'replace-with-keycloak-token-uri'
+
+.\examples\nifi-api-ingest\scripts\setup-flow.ps1 `
+  -KeycloakTokenUri $keycloakTokenUri `
+  -KeycloakClientSecret $targetClientSecret `
+  -ReplaceExisting `
+  -RunOnce `
+  -VerifyReplay
+```
+
+`$targetClientSecret` 應沿用 Spring Provision API 回傳、目前 PowerShell session 中的
+變數；不要貼出或提交實際 Secret。腳本會建立 Parameter Context、OAuth2 Controller
+Service、mock data flow、APISIX HTTP 呼叫、400/401/403 分流與 5xx retry。第一次執行
+應觀察兩筆有效商品與一筆 400 驗證失敗；`-VerifyReplay` 會再送相同
+`sourceRecordId`，確認第二次有效資料回傳 200 且 `duplicate=true`。
+
 注意：課程中的 `docker compose ...` 指令都要在專案根目錄執行，也就是目前包含 `docker-compose.yaml` 的工作目錄。若在其他目錄執行，可能會出現 `no such service: nifi` 或找不到 compose 專案。
 
 ## 產生與啟動雙欄式 HTML 閱讀器
@@ -217,7 +247,8 @@ node docs/nifi-training/mdx/build-training-html.mjs
 11. [Lab 09：NiFi Cluster 入門與多節點執行觀念](09-clustering.md)
 12. [Lab 10：Query、Formatter 與 Expression Language 實戰](10-query-format-expression-language.md)
 13. [Lab 11：當內建 Processor 不足時，使用 NiFi SPI 開發客製化 Processor](11-00-custom-processor-spi.md)
-14. [速查表：常用 Processor 與排錯關鍵字](99-cheatsheet.md)
+14. [Lab 12：以 REST API 建立 NiFi → APISIX → Spring Boot 匯入流程](12-nifi-apisix-spring-ingest.md)
+15. [速查表：常用 Processor 與排錯關鍵字](99-cheatsheet.md)
 
 ## 補充閱讀
 
@@ -232,6 +263,15 @@ examples/nifi-custom-processor/
 ```
 
 其中包含 Processor 原始碼、`nifi-mock` 測試、NAR 打包與 REST API flow 建立腳本。
+
+Lab 12 的 REST API 建流範例位於：
+
+```text
+examples/nifi-api-ingest/
+```
+
+其中包含不需要 NAR 的內建 Processor flow、OAuth2 Parameter Context 設定、APISIX
+Gateway 呼叫、HTTP 狀態分流與 retry 驗證腳本。
 
 ## 每個 Lab 的操作原則
 
@@ -285,4 +325,6 @@ examples/nifi-custom-processor/
 - 使用 NiFi 公開 Java API 實作、測試並打包一個 custom Processor NAR。
 - 分辨 Java JAR 的程式碼產物責任，以及 NiFi NAR 的部署封裝責任。
 - 透過 REST API 上傳 NAR、建立 Processor 與 connection、執行 `RUN_ONCE` 並讀回 FlowFile attribute。
+- 透過 REST API 建立 Parameter Context、OAuth2 Controller Service 與內建 Processor flow。
+- 讓 NiFi mock data 經 APISIX Gateway 呼叫 Spring Boot API，依 HTTP status 分流、重試與驗證冪等結果。
 - 用 queue、bulletin、provenance、logs 找錯。

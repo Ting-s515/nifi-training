@@ -513,9 +513,16 @@ $nifiGatewayUrl = $gatewayData.gatewayUrl -replace '://localhost:', '://host.doc
 springPath 已在 allowlist 且 methods 為受支援的 HTTP method；若得到 502 / E603，
 檢查 APISIX Admin URL、Admin key 與 container 狀態。
 
-## Step 5：確認 API contract
+## Step 5：確認 API contract（規格說明，不需直接執行）
 
-### Request
+本 Step 的目的，是先確認 Spring API 接收的欄位、驗證規則與回應狀態，不會建立 flow
+或寫入資料庫。下方 `http` code block 是 request contract 範例，不是可直接貼到
+PowerShell 執行的指令；正式課程主線請閱讀完本 Step 後直接進入 Step 6。
+
+`/api/v1/integrations/products` 是 APISIX rewrite 後的 Spring target path。NiFi runtime
+實際呼叫的是 Step 4 建立的公開路徑 `/gateway/products-ingest`。
+
+### Request contract（閱讀用）
 
 ~~~http
 POST /api/v1/integrations/products
@@ -530,6 +537,36 @@ Content-Type: application/json
   "initialStock": 8
 }
 ~~~
+
+### 可選：手動呼叫 Gateway 驗證
+
+若想在建立 NiFi flow 前先驗證「APISIX → Spring」的 HTTP contract，可以執行下列
+PowerShell。這不是必要步驟；它會新增 `manual-1001` 商品資料，因此只在需要先隔離
+驗證 Gateway 或 Spring API 時使用。此指令需要沿用 Step 3 取得的 `$bearerHeaders`，
+以及 Step 4 已建立的 `products-ingest` route：
+
+~~~powershell
+$manualRequest = @{
+    sourceRecordId = "manual-1001"
+    name = "USB-C 擴充座"
+    description = "手動 contract 驗證"
+    price = 1890
+    initialStock = 8
+} | ConvertTo-Json -Depth 5
+
+$manualResponse = Invoke-RestMethod -Method Post `
+    -Uri "http://localhost:9080/gateway/products-ingest" `
+    -Headers $bearerHeaders `
+    -ContentType "application/json" `
+    -Body $manualRequest `
+    -ErrorAction Stop
+
+$manualResponse.data | Select-Object sourceRecordId, duplicate
+~~~
+
+預期第一次執行回傳 HTTP 201、`duplicate=false`；相同 `manual-1001` 再送一次會回傳
+HTTP 200、`duplicate=true`。這裡從主機呼叫使用 `localhost:9080`；Step 6 的 NiFi
+container 內部呼叫則使用 `host.docker.internal:9080`。
 
 | 欄位 | Java 型別 | JSON 型別 | 必填與規則 |
 | --- | --- | --- | --- |

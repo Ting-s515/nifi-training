@@ -175,7 +175,7 @@ function Invoke-ApiIngestOnce {
     param(
         [string]$RunLabel,
         [string[]]$ExpectedSuccessStatusCodes,
-        [bool]$ExpectedDuplicate
+        [Nullable[bool]]$ExpectedDuplicate
     )
 
     Start-ApiIngestWorkers

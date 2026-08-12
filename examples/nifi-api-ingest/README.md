@@ -15,6 +15,41 @@ GenerateFlowFile（模擬外部資料）
 的 custom Processor NAR。腳本會使用共用的 `nifi-flow-helper.ps1`，透過 NiFi 公開 REST
 API 建立 Process Group、Parameter Context、Processor、Controller Service 與 Connection。
 
+## 實作檔案位置
+
+| 檔案 | 在串接中的責任 |
+| --- | --- |
+| `scripts/setup-flow.ps1` | 定義 mock data、建立 flow、設定 OAuth2 `InvokeHTTP`、連接 APISIX 與驗證 queue |
+| `../nifi-custom-processor/scripts/nifi-flow-helper.ps1` | 讀取 NiFi `.env`、取得 NiFi token、封裝 REST API 建立資源 |
+| `../../docs/nifi-training/12-nifi-apisix-spring-ingest.md` | 說明 NiFi、APISIX、Spring 的端到端責任與反查方法 |
+| `../../../spring-boot-training/spring-course-backend/src/main/java/dev/course/product/integration/apisix/ApisixAdminAdapter.java` | Spring 透過 APISIX Admin API 建立 Upstream、Route 與 path rewrite |
+| `../../../spring-boot-training/spring-course-backend/src/main/java/dev/course/product/controller/ProductImportController.java` | 接收 APISIX rewrite 後的商品匯入 request |
+| `../../../spring-boot-training/spring-course-backend/src/main/java/dev/course/product/service/ProductImportService.java` | 驗證後的 transaction、冪等與 conflict 業務邏輯 |
+
+請先看 `setup-flow.ps1` 的 Processor 設定，再回到 Spring 的 adapter 與 Controller；
+這樣可以看出「NiFi 是呼叫端、APISIX 是 routing boundary、Spring 是 business boundary」，
+而不是把三者誤認成同一個 flow engine。
+
+```text
+setup-flow.ps1
+  ├─ POST /nifi-api/access/token          # 部署 flow 的 NiFi token
+  ├─ 建立 InvokeHTTP + OAuth2 Service
+  └─ runtime POST /gateway/products-ingest # 執行資料的 Keycloak token
+                         │
+                         ▼
+                   APISIX 9080
+                         │ rewrite
+                         ▼
+        Spring /api/v1/integrations/products
+                         │
+                         ▼
+                  Service → SQLite
+```
+
+`setup-flow.ps1` 中的 `#{apisix.gateway-url}` 是 NiFi Parameter Context reference，
+`Request OAuth2 Access Token Provider` 則指定 runtime 取得 Keycloak Bearer token 的
+Controller Service。這兩個設定就是 NiFi 連到 APISIX 的關鍵接點。
+
 ## 執行前提
 
 1. NiFi runtime 已啟動，而且根目錄 `.env` 的 NiFi 帳密可登入。

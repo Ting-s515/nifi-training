@@ -250,6 +250,23 @@ node docs/nifi-training/mdx/build-training-html.mjs
 14. [Lab 12：以 REST API 建立 NiFi → APISIX → Spring Boot 匯入流程](12-nifi-apisix-spring-ingest.md)
 15. [速查表：常用 Processor 與排錯關鍵字](99-cheatsheet.md)
 
+## 端到端串接主線
+
+Lab 12 是本課程與 Spring Boot 公司練習專案的整合入口，請將它視為三個 repository
+之間的實作導覽，而不是單純的 NiFi Processor 操作：
+
+| 階段 | 課程／檔案 | 學員要理解的責任 |
+| --- | --- | --- |
+| 建立權限與 Gateway route | Spring `docs/17-company-practice-project.md`、`docs/18-apisix-gateway.md`、`docs/19-nifi-api-ingest.md` | Keycloak Role、APISIX Admin API、公開 Gateway path 與 Spring target path |
+| 建立 NiFi flow | `examples/nifi-api-ingest/scripts/setup-flow.ps1` | 以 NiFi REST API 建立 Processor、Controller Service、Connection 與 Parameter Context |
+| 執行 HTTP 串接 | Lab 12 的 `InvokeHTTP` | 用 Keycloak OAuth2 token 呼叫 APISIX Data Plane，而不是直接連 Spring 或 APISIX Admin |
+| 驗證商業結果 | Spring `ProductImportController`、`ProductImportService`、`JdbcProductImportRepository` | validation、transaction、冪等重送、400／409 與 SQLite mapping |
+
+遇到問題時，先依序檢查「NiFi flow → APISIX route → Spring Security → Controller／Service
+→ Repository」，不要只在 NiFi queue 端猜測。Lab 12 內的
+[實作檔案地圖](12-nifi-apisix-spring-ingest.md#這條串接的實作檔案地圖) 會帶你從每個
+結果反查實際程式碼位置。
+
 ## 補充閱讀
 
 - [Auto-terminate 完整說明](supplement-auto-terminate.md)

@@ -79,6 +79,7 @@ docker compose ps
 開啟：
 
 - NiFi UI：`https://localhost:8443/nifi`
+- NiFi HTTP port mapping：主機 `http://localhost:18081` 對應容器內 `8080`；主機 `8080` 保留給 Spring Boot 等其他服務
 - NiFi Registry UI：`http://localhost:18080/nifi-registry`
 
 登入帳密請看本機 `.env`，不要把實際密碼寫進文件或 commit。
@@ -172,13 +173,13 @@ npm.cmd --prefix ./docs/nifi-training run build
 
 ### 啟動本機文件網站
 
-`dev` 會先執行 build，再啟動只綁定 `127.0.0.1:18100` 的靜態伺服器：
+`dev` 會先執行 build，再啟動只綁定 `127.0.0.1:18101` 的靜態伺服器：
 
 ```powershell
 npm.cmd --prefix ./docs/nifi-training run dev
 ```
 
-開啟 <http://127.0.0.1:18100>，完成後按 `Ctrl+C` 停止伺服器。
+開啟 <http://127.0.0.1:18101>，完成後按 `Ctrl+C` 停止伺服器。
 
 如果已經完成 build，只想啟動靜態伺服器，可使用：
 

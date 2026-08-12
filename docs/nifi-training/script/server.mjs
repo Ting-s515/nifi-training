@@ -6,7 +6,7 @@ import { createServer } from "node:http";
 
 const scriptDirectory = path.dirname(fileURLToPath(import.meta.url));
 const outputDirectory = path.resolve(scriptDirectory, "..");
-const port = 18100;
+const port = 18101;
 const host = "127.0.0.1";
 const files = new Map([
   ["/", { name: "index.html", type: "text/html; charset=utf-8" }],

@@ -28,6 +28,61 @@ flowchart LR
 本 Lab 的資料契約是 POST /api/v1/integrations/products。NiFi 不直接操作 SQLite，
 APISIX 不負責建立 Spring endpoint；每一層只負責自己的邊界。
 
+## 本 Lab 的 Processor 責任與分流
+
+先釐清本 Lab 的 Processor 定位：本 Lab 使用 NiFi 2.9.0 內建 Processor，沒有新增
+Java 客製化 Processor。這裡的客製化是 `setup-flow.ps1` 透過 NiFi REST API 組合
+Processor、設定屬性、綁定 Controller Service 與建立 Connection，形成符合匯入業務的
+資料流。若需求是開發 NiFi 內建功能無法完成的 Java Processor，應另行進入 SPI
+客製化 Processor 主題；本 Lab 不要求該主題作為前置依賴。
+
+```mermaid
+flowchart LR
+    source["GenerateFlowFile<br>模擬外部資料"] --> split["SplitJson<br>拆成單筆商品"]
+    split --> update["UpdateAttribute<br>標記來源與 MIME"]
+    update --> invoke["InvokeHTTP<br>OAuth2 POST through APISIX"]
+    invoke -- "2xx / Original" --> success["LogAttribute<br>成功結果"]
+    invoke -- "4xx / No Retry" --> route["RouteOnAttribute<br>依 status code 分類"]
+    route -- "400 / 409" --> business["LogAttribute<br>business validation"]
+    route -- "401 / 403" --> auth["LogAttribute<br>authentication"]
+    route -- "其他 4xx" --> client["LogAttribute<br>其他 client failure"]
+    invoke -- "5xx / 連線失敗" --> retry["RetryFlowFile<br>最多 3 次"]
+    retry -- "retry" --> invoke
+    retry -- "retries_exceeded / failure" --> retryLog["LogAttribute<br>重試結果"]
+    invoke -- "Response" --> responseDone["auto-terminate<br>不保留 response FlowFile"]
+```
+
+### Processor 各自負責什麼
+
+| Processor | 本 Lab 的責任 | 為什麼需要它 |
+| --- | --- | --- |
+| `GenerateFlowFile` | 產生包含三筆商品的 JSON array | 模擬外部資料來源，讓學員可以重現相同輸入 |
+| `SplitJson` | 以 `$.*` 將 array 拆成一筆商品一個 FlowFile | 每筆資料要獨立呼叫 API，才能分別觀察成功與失敗 |
+| `UpdateAttribute` | 加上 `mime.type` 與 `training.source` | 保留資料來源與內容格式，方便下游 API 與 LogAttribute 反查 |
+| `InvokeHTTP` | 以 OAuth2 Client Credentials 取得 Bearer token，呼叫 APISIX Gateway | 將 NiFi FlowFile 轉成對外 HTTP request，並把 HTTP status 與 response body 帶回 FlowFile |
+| `RouteOnAttribute` | 依 `invokehttp.status.code` 分類 400、409、401、403 | 將業務錯誤、認證錯誤與其他 client 錯誤分開處理 |
+| `RetryFlowFile` | 對 5xx 或連線失敗最多重試 3 次 | 暫時性基礎設施錯誤適合重試，業務驗證錯誤不應重試 |
+| `LogAttribute` | 記錄 HTTP status、status message、來源識別與 training source | 讓學員從 NiFi log 或 Provenance 反查每筆 FlowFile 的處理結果 |
+
+`InvokeHTTP` 的 `Response Generation Required=false` 讓 2xx 使用 `Original` relationship
+繼續往 success；response body 寫入 `api.response.body` attribute。`Response` relationship
+設定為 auto-terminate，避免 4xx response FlowFile 與 `No Retry` 同時進入 success。
+
+### HTTP status 如何分流
+
+| 情境 | HTTP status | NiFi 路徑 | 說明 |
+| --- | ---: | --- | --- |
+| 第一次匯入有效商品 | `201` | `Original → success LogAttribute` | Spring 建立 `product` 與 `product_import` |
+| 重送相同有效商品 | `200` | `Original → success LogAttribute` | Spring 回傳 `duplicate=true`，不重複建立資料 |
+| 商品欄位驗證失敗 | `400` | `No Retry → RouteOnAttribute → business.validation.400` | 例如 `price=-1`，修正輸入後再送，不進 retry |
+| 相同來源 ID 但內容衝突 | `409` | `No Retry → RouteOnAttribute → business.validation.409` | 外部資料與既有 mapping 不一致，需要人工判斷 |
+| Token 或權限錯誤 | `401`、`403` | `No Retry → RouteOnAttribute → authentication` | 檢查 Keycloak token、Role 與 Spring Security |
+| 暫時性服務或網路錯誤 | `5xx` 或連線失敗 | `Retry / Failure → RetryFlowFile` | 最多重試 3 次，超過後進重試失敗 LogAttribute |
+
+因此本 Lab 的核心不是撰寫新的 Processor class，而是學會把既有 Processor 組合成
+可觀察、可分流、可重試且符合業務語意的 Flow；SPI 客製化 Processor 則是另一個
+開發主題。
+
 ## 先定位實作檔案
 
 本 Lab 建議採用「先看檔案責任，再執行指令」的閱讀方式。下表是從外部 request 到

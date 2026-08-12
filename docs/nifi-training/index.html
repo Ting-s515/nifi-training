@@ -297,7 +297,10 @@ group，使用 <code>-Cleanup</code>。<code>-ReplaceExisting</code> 會刪除�
 <h3 id="doc-readme-b3356305--lab-12-的-api-整合初始化">Lab 12 的 API 整合初始化</h3>
 <p>Lab 12 不需要重新建置 Lab 11 的 JAR/NAR。它使用 NiFi runtime 已提供的
 <code>GenerateFlowFile</code>、<code>SplitJson</code>、<code>UpdateAttribute</code>、<code>InvokeHTTP</code>、<code>RouteOnAttribute</code>、
-<code>RetryFlowFile</code> 與 <code>StandardOauth2AccessTokenProvider</code>，由 REST API 腳本建立完整 flow。</p>
+<code>RetryFlowFile</code> 與 <code>StandardOauth2AccessTokenProvider</code>，由 REST API 腳本建立完整 flow。
+各 Processor 的責任、<code>201</code>／<code>200</code>／<code>400</code>／<code>409</code>／<code>401</code>／<code>403</code>／<code>5xx</code> 分流與
+<code>Original</code>、<code>No Retry</code>、<code>Retry</code> relationship 的原因，請先閱讀 <a href="#doc-12-nifi-apisix-spring-ingest-e752538c--本-lab-的-processor-責任與分流">Lab 12 的 Processor
+責任與分流</a>。</p>
 <p>Lab 12 文件本身已包含 Keycloak Role、APISIX route、Spring API contract、Secret 記憶體
 管理、NiFi REST 建流、執行驗證與排錯步驟。學員只需要閱讀本 repository 的 Lab 12，
 不需要再跳到另一個 repository 的課程文件；另一個專案的程式碼路徑只作為責任反查座標。</p>
@@ -6525,6 +6528,128 @@ relationship，也要同步更新下游 connection、auto-terminate 與部署驗
 </div>
 <p>本 Lab 的資料契約是 POST /api/v1/integrations/products。NiFi 不直接操作 SQLite，
 APISIX 不負責建立 Spring endpoint；每一層只負責自己的邊界。</p>
+<h2 id="doc-12-nifi-apisix-spring-ingest-e752538c--本-lab-的-processor-責任與分流">本 Lab 的 Processor 責任與分流</h2>
+<p>先釐清本 Lab 的 Processor 定位：本 Lab 使用 NiFi 2.9.0 內建 Processor，沒有新增
+Java 客製化 Processor。這裡的客製化是 <code>setup-flow.ps1</code> 透過 NiFi REST API 組合
+Processor、設定屬性、綁定 Controller Service 與建立 Connection，形成符合匯入業務的
+資料流。若需求是開發 NiFi 內建功能無法完成的 Java Processor，應另行進入 SPI
+客製化 Processor 主題；本 Lab 不要求該主題作為前置依賴。</p>
+<div class="mermaid">flowchart LR
+    source["GenerateFlowFile&#x3C;br>模擬外部資料"] --> split["SplitJson&#x3C;br>拆成單筆商品"]
+    split --> update["UpdateAttribute&#x3C;br>標記來源與 MIME"]
+    update --> invoke["InvokeHTTP&#x3C;br>OAuth2 POST through APISIX"]
+    invoke -- "2xx / Original" --> success["LogAttribute&#x3C;br>成功結果"]
+    invoke -- "4xx / No Retry" --> route["RouteOnAttribute&#x3C;br>依 status code 分類"]
+    route -- "400 / 409" --> business["LogAttribute&#x3C;br>business validation"]
+    route -- "401 / 403" --> auth["LogAttribute&#x3C;br>authentication"]
+    route -- "其他 4xx" --> client["LogAttribute&#x3C;br>其他 client failure"]
+    invoke -- "5xx / 連線失敗" --> retry["RetryFlowFile&#x3C;br>最多 3 次"]
+    retry -- "retry" --> invoke
+    retry -- "retries_exceeded / failure" --> retryLog["LogAttribute&#x3C;br>重試結果"]
+    invoke -- "Response" --> responseDone["auto-terminate&#x3C;br>不保留 response FlowFile"]
+</div>
+<h3 id="doc-12-nifi-apisix-spring-ingest-e752538c--processor-各自負責什麼">Processor 各自負責什麼</h3>
+<table>
+<thead>
+<tr>
+<th>Processor</th>
+<th>本 Lab 的責任</th>
+<th>為什麼需要它</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>GenerateFlowFile</code></td>
+<td>產生包含三筆商品的 JSON array</td>
+<td>模擬外部資料來源，讓學員可以重現相同輸入</td>
+</tr>
+<tr>
+<td><code>SplitJson</code></td>
+<td>以 <code>$.*</code> 將 array 拆成一筆商品一個 FlowFile</td>
+<td>每筆資料要獨立呼叫 API，才能分別觀察成功與失敗</td>
+</tr>
+<tr>
+<td><code>UpdateAttribute</code></td>
+<td>加上 <code>mime.type</code> 與 <code>training.source</code></td>
+<td>保留資料來源與內容格式，方便下游 API 與 LogAttribute 反查</td>
+</tr>
+<tr>
+<td><code>InvokeHTTP</code></td>
+<td>以 OAuth2 Client Credentials 取得 Bearer token，呼叫 APISIX Gateway</td>
+<td>將 NiFi FlowFile 轉成對外 HTTP request，並把 HTTP status 與 response body 帶回 FlowFile</td>
+</tr>
+<tr>
+<td><code>RouteOnAttribute</code></td>
+<td>依 <code>invokehttp.status.code</code> 分類 400、409、401、403</td>
+<td>將業務錯誤、認證錯誤與其他 client 錯誤分開處理</td>
+</tr>
+<tr>
+<td><code>RetryFlowFile</code></td>
+<td>對 5xx 或連線失敗最多重試 3 次</td>
+<td>暫時性基礎設施錯誤適合重試，業務驗證錯誤不應重試</td>
+</tr>
+<tr>
+<td><code>LogAttribute</code></td>
+<td>記錄 HTTP status、status message、來源識別與 training source</td>
+<td>讓學員從 NiFi log 或 Provenance 反查每筆 FlowFile 的處理結果</td>
+</tr>
+</tbody>
+</table>
+<p><code>InvokeHTTP</code> 的 <code>Response Generation Required=false</code> 讓 2xx 使用 <code>Original</code> relationship
+繼續往 success；response body 寫入 <code>api.response.body</code> attribute。<code>Response</code> relationship
+設定為 auto-terminate，避免 4xx response FlowFile 與 <code>No Retry</code> 同時進入 success。</p>
+<h3 id="doc-12-nifi-apisix-spring-ingest-e752538c--http-status-如何分流">HTTP status 如何分流</h3>
+<table>
+<thead>
+<tr>
+<th>情境</th>
+<th align="right">HTTP status</th>
+<th>NiFi 路徑</th>
+<th>說明</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>第一次匯入有效商品</td>
+<td align="right"><code>201</code></td>
+<td><code>Original → success LogAttribute</code></td>
+<td>Spring 建立 <code>product</code> 與 <code>product_import</code></td>
+</tr>
+<tr>
+<td>重送相同有效商品</td>
+<td align="right"><code>200</code></td>
+<td><code>Original → success LogAttribute</code></td>
+<td>Spring 回傳 <code>duplicate=true</code>，不重複建立資料</td>
+</tr>
+<tr>
+<td>商品欄位驗證失敗</td>
+<td align="right"><code>400</code></td>
+<td><code>No Retry → RouteOnAttribute → business.validation.400</code></td>
+<td>例如 <code>price=-1</code>，修正輸入後再送，不進 retry</td>
+</tr>
+<tr>
+<td>相同來源 ID 但內容衝突</td>
+<td align="right"><code>409</code></td>
+<td><code>No Retry → RouteOnAttribute → business.validation.409</code></td>
+<td>外部資料與既有 mapping 不一致，需要人工判斷</td>
+</tr>
+<tr>
+<td>Token 或權限錯誤</td>
+<td align="right"><code>401</code>、<code>403</code></td>
+<td><code>No Retry → RouteOnAttribute → authentication</code></td>
+<td>檢查 Keycloak token、Role 與 Spring Security</td>
+</tr>
+<tr>
+<td>暫時性服務或網路錯誤</td>
+<td align="right"><code>5xx</code> 或連線失敗</td>
+<td><code>Retry / Failure → RetryFlowFile</code></td>
+<td>最多重試 3 次，超過後進重試失敗 LogAttribute</td>
+</tr>
+</tbody>
+</table>
+<p>因此本 Lab 的核心不是撰寫新的 Processor class，而是學會把既有 Processor 組合成
+可觀察、可分流、可重試且符合業務語意的 Flow；SPI 客製化 Processor 則是另一個
+開發主題。</p>
 <h2 id="doc-12-nifi-apisix-spring-ingest-e752538c--先定位實作檔案">先定位實作檔案</h2>
 <p>本 Lab 建議採用「先看檔案責任，再執行指令」的閱讀方式。下表是從外部 request 到
 資料庫的最短追蹤路徑：</p>

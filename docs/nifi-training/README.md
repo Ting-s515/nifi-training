@@ -150,6 +150,9 @@ group，使用 `-Cleanup`。`-ReplaceExisting` 會刪除同名舊群組，僅適
 Lab 12 不需要重新建置 Lab 11 的 JAR/NAR。它使用 NiFi runtime 已提供的
 `GenerateFlowFile`、`SplitJson`、`UpdateAttribute`、`InvokeHTTP`、`RouteOnAttribute`、
 `RetryFlowFile` 與 `StandardOauth2AccessTokenProvider`，由 REST API 腳本建立完整 flow。
+各 Processor 的責任、`201`／`200`／`400`／`409`／`401`／`403`／`5xx` 分流與
+`Original`、`No Retry`、`Retry` relationship 的原因，請先閱讀 [Lab 12 的 Processor
+責任與分流](12-nifi-apisix-spring-ingest.md#本-lab-的-processor-責任與分流)。
 
 Lab 12 文件本身已包含 Keycloak Role、APISIX route、Spring API contract、Secret 記憶體
 管理、NiFi REST 建流、執行驗證與排錯步驟。學員只需要閱讀本 repository 的 Lab 12，
